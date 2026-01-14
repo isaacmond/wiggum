@@ -5,7 +5,7 @@ import random
 from smithers.console import console, print_header
 
 SMITHERS_QUOTES: tuple[str, ...] = (
-    # Sycophantic Devotion
+    # Sycophantic Devotion (Seasons 1-12)
     (
         "Actually, I value every second we're together. From the moment I squeeze his "
         "orange juice in the morning, till I tuck him in at night. He's not just my boss, "
@@ -21,6 +21,8 @@ SMITHERS_QUOTES: tuple[str, ...] = (
     "Oh, you never cease to amaze me, sir.",
     "You looken sharpen todayen, Mein Herr.",
     "You are noble and poetic in defeat, sir.",
+    "For the love of God, sir! There are two seats!",
+    "Oh, who am I kidding? The boathouse was the time!",
     # Work & Duties
     (
         "Your new duties will include answering Mr. Burns' phone, preparing his tax return, "
@@ -43,18 +45,54 @@ SMITHERS_QUOTES: tuple[str, ...] = (
         "Mr. Burns can't stand talking to his mother. He never forgave her for having that "
         "affair with President Taft."
     ),
+    (
+        "Sir, I'm afraid all those players have retired and... passed on. In fact, your "
+        "right fielder has been dead for 130 years."
+    ),
+    (
+        "Oh, in the meantime, sir, may I suggest a random firing? Just to throw the fear "
+        "of God into them?"
+    ),
+    (
+        "Well, I caught up on my laundry, wrote a letter to my mother, oh, here's a kicker, "
+        "and I took Hercules out to be clipped."
+    ),
+    (
+        "Well sir, you have certainly vanquished your enemies. The elementary school, the "
+        "local tavern, the old age home. You must be very proud."
+    ),
     # Unflappable Loyalty
     "Right, sir. It's... scalding me as we speak.",
     "But sir, I'm flaming!",
-    "Careful, Smithers, that sponge has corners, you know. I'll go find a spherical one, sir.",
+    "I'll go find a spherical sponge, sir.",
     "I think women and seamen don't mix.",
-    "Oh the money you've contributed to anti-helmet laws has really paid off, sir.",
+    "Oh, the money you've contributed to anti-helmet laws has really paid off, sir.",
     "Oh my God, Mr. Burns is dead! Why do the good always die so young?",
-    # Miscellaneous
+    "Uh, if you did it, sir?",
+    # Exasperation & Wit
+    "I'm allergic to bee stings. They cause me to, uh, die.",
+    "A little mincing would be nice.",
+    "Oh great. It's the Bobbsey Twins. Well, take your prying eyes elsewhere.",
+    "Fine, good. I don't care anymore.",
+    "Aren't there any healthy animals in this forest?",
+    (
+        "How could you do this to me, Mr. Burns, after all I've done for you? Why, if you "
+        "were here, I'd kick you right in your bony, old behind!"
+    ),
+    "Damn this common gutter blood in my veins!",
+    # Burns' Schemes & Villainy
+    (
+        "But sir, every plant and tree will die, owls will deafen us with incessant hooting, "
+        "the town's sundial will be useless. I don't want any part of this project. "
+        "It's unconscionably fiendish."
+    ),
+    # Miscellaneous Classic Lines
     "They're fighting like Iran and Iraq! ...Persia and Mesopotamia.",
-    "Hello Smithers. You're quite good at turning me on. Uh... you probably should ignore that.",
     "Absolutely, sir. Boy, would I!",
     "Priceless sir, you made the word 'ceremonies' frightening.",
+    "People like dogs, Mr. Burns.",
+    "I'll get the amnesia ray, sir.",
+    "That's the barking bird, sir.",
 )
 
 

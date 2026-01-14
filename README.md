@@ -4,6 +4,16 @@ Your loyal PR automation assistant, powered by Claude AI.
 
 Like Mr. Burns' ever-faithful assistant, Smithers diligently handles the details of creating staged PRs from design documents and iteratively fixes review comments until everything passes. Excellent.
 
+## Warning
+
+**This tool runs Claude Code with `--dangerously-skip-permissions` enabled by default.** This means:
+
+- Claude will execute commands, create/modify/delete files, and make git operations **without asking for confirmation**
+- The AI has full access to your repository and can make any changes it deems necessary
+- PRs are created and pushed to your repository automatically
+
+**Use at your own risk.** Only run Smithers in repositories where you are comfortable with autonomous AI-driven changes. Review all generated PRs carefully before merging. It is strongly recommended to run this tool in isolated environments or on branches you can safely discard.
+
 ## Features
 
 - **Implement Mode**: Analyzes design documents and creates staged PRs with parallel execution
