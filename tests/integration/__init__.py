@@ -1,1 +1,1 @@
-"""Integration tests for Wiggum."""
+"""Integration tests for Smithers."""

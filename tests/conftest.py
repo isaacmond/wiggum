@@ -1,4 +1,4 @@
-"""Shared test fixtures for Wiggum tests."""
+"""Shared test fixtures for Smithers tests."""
 
 from pathlib import Path
 
