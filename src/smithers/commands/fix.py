@@ -1,6 +1,7 @@
 """Fix command - iteratively fix PR review comments and CI failures."""
 
 import re
+import sys
 import time
 from datetime import UTC, datetime
 from pathlib import Path
@@ -9,6 +10,7 @@ from urllib.parse import urlparse
 
 import typer
 
+from smithers.commands.quote import print_random_quote
 from smithers.console import console, print_error, print_header, print_info, print_success
 from smithers.exceptions import DependencyMissingError, SmithersError
 from smithers.models.config import Config, set_config
@@ -92,6 +94,8 @@ def fix(
     This command loops until all review comments are addressed and CI passes
     on all specified PRs.
     """
+    print_random_quote()
+
     if not pr_identifiers:
         print_error("At least one PR number or URL is required")
         raise typer.Exit(1)
@@ -121,6 +125,10 @@ def fix(
 
     # Check dependencies
     try:
+        tmux_service.ensure_rejoinable_session(
+            session_name=f"smithers-fix-{design_doc.stem}",
+            argv=sys.argv,
+        )
         git_service.ensure_dependencies()
         tmux_service.ensure_dependencies()
         claude_service.ensure_dependencies()

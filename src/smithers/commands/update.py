@@ -5,6 +5,7 @@ from shutil import which
 
 import typer
 
+from smithers.commands.quote import print_random_quote
 from smithers.console import console, print_error, print_info, print_success
 
 
@@ -14,6 +15,8 @@ def update() -> None:
 
     This runs `uv tool upgrade smithers` under the hood.
     """
+    print_random_quote()
+
     if which("uv") is None:
         print_error("uv is required to update smithers. Install it from https://docs.astral.sh/uv/")
         raise typer.Exit(1)

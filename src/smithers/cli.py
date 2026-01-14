@@ -6,6 +6,10 @@ from rich.console import Console
 from smithers import __version__
 from smithers.commands.fix import fix
 from smithers.commands.implement import implement
+from smithers.commands.plan import plan
+from smithers.commands.quote import quote
+from smithers.commands.rejoin import rejoin
+from smithers.commands.sessions import sessions
 from smithers.commands.update import update
 from smithers.services.version import check_for_updates
 
@@ -18,11 +22,15 @@ app = typer.Typer(
 )
 
 # Add commands
+app.command(name="plan")(plan)
 app.command(name="implement")(implement)
 app.command(name="fix")(fix)
+app.command(name="rejoin")(rejoin)
+app.command(name="sessions")(sessions)
 app.command(name="update")(update)
 # Backwards-compatible alias for self-update
 app.command(name="update-self", help="Alias for update")(update)
+app.command(name="quote", hidden=True)(quote)
 
 
 @app.callback(invoke_without_command=True)

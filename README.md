@@ -13,28 +13,29 @@ Like Mr. Burns' ever-faithful assistant, Smithers diligently handles the details
 
 ## Installation
 
-### Prerequisites
+```bash
+curl -fsSL https://raw.githubusercontent.com/Metaview/smithers/main/install.sh | bash
+```
 
-- Python 3.14+
-- [uv](https://docs.astral.sh/uv/) - Package manager
-- [git-worktree-runner (git gtr)](https://github.com/coderabbitai/git-worktree-runner) - Worktree management
-- [tmux](https://github.com/tmux/tmux) - Terminal multiplexer
-- [Claude Code CLI](https://claude.ai/code) - AI code generation
-- [GitHub CLI (gh)](https://cli.github.com/) - GitHub operations
+That's it! The installer will guide you through setting up any missing dependencies.
+
+<details>
+<summary>Manual installation</summary>
+
+If you prefer to install manually:
 
 ```bash
-# Install git-worktree-runner (gtr)
-git clone https://github.com/coderabbitai/git-worktree-runner.git
-(cd git-worktree-runner && ./install.sh)
-
-# Install other prerequisites
-brew install tmux
-brew install gh
-npm install -g @anthropic-ai/claude-code
-
-# Install smithers (from local clone)
-uv tool install /path/to/smithers
+# Requires uv (https://docs.astral.sh/uv/)
+uv tool install git+https://github.com/Metaview/smithers.git
 ```
+
+**Prerequisites:**
+- [uv](https://docs.astral.sh/uv/) - Package manager
+- [tmux](https://github.com/tmux/tmux) - `brew install tmux`
+- [GitHub CLI](https://cli.github.com/) - `brew install gh`
+- [Claude Code CLI](https://claude.ai/code) - `npm install -g @anthropic-ai/claude-code`
+
+</details>
 
 ## Usage
 
@@ -70,14 +71,16 @@ smithers fix docs/my-feature.md 123 --max-iterations 5
 ### Update Smithers
 
 ```bash
-# Update to the latest released version
 smithers update
-
-# Alias
-smithers update-self
 ```
 
-The update command uses `uv tool upgrade smithers` under the hood. Ensure `uv` is installed and on your `PATH`.
+### Secret Mode: Smithers Quote
+
+```bash
+smithers quote
+```
+
+Prints a random, sycophantic quote from Mr. Burns' ever-loyal assistant.
 
 ## How It Works
 

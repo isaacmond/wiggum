@@ -8,6 +8,7 @@ from typer.testing import CliRunner
 
 from smithers import __version__
 from smithers.cli import app
+from smithers.commands.quote import SMITHERS_QUOTES
 
 runner = CliRunner()
 
@@ -34,6 +35,7 @@ class TestCLI:
         assert "implement" in result.stdout
         assert "fix" in result.stdout
         assert "update" in result.stdout
+        # Note: "quote" is a hidden command and should not appear in help
 
     def test_implement_help(self) -> None:
         """Test implement command help."""
@@ -126,3 +128,12 @@ class TestCLI:
         """Test fix with missing PR numbers."""
         result = runner.invoke(app, ["fix", "nonexistent.md"])
         assert result.exit_code != 0
+
+    def test_quote_outputs_known_line(self) -> None:
+        """Test quote command prints one of the Smithers lines."""
+        result = runner.invoke(app, ["quote"])
+        assert result.exit_code == 0
+        output = strip_ansi(result.stdout)
+        # Normalize whitespace to handle line wrapping by Rich console
+        normalized_output = " ".join(output.split())
+        assert any(quote in normalized_output for quote in SMITHERS_QUOTES)
