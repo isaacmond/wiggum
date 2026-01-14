@@ -302,9 +302,7 @@ class GitHubService:
 
             # Filter to only unresolved
             unresolved = [c for c in comments if not c.is_resolved]
-            logger.info(
-                f"PR #{pr_number}: {len(unresolved)} unresolved (total {len(comments)})"
-            )
+            logger.info(f"PR #{pr_number}: {len(unresolved)} unresolved (total {len(comments)})")
             return unresolved
         except subprocess.CalledProcessError as e:
             logger.warning(f"Failed to get comments for PR #{pr_number}: {e.stderr}")

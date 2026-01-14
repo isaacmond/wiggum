@@ -360,9 +360,7 @@ def _run_implementation_phase(
         completed_stages = todo.get_completed_stages()
         if completed_stages:
             completed_nums = [s.number for s in completed_stages]
-            logger.warning(
-                f"Found completed stages {completed_nums} but --resume not specified"
-            )
+            logger.warning(f"Found completed stages {completed_nums} but --resume not specified")
             console.print(
                 f"[yellow]Warning: Found {len(completed_stages)} completed stage(s) "
                 f"{completed_nums}. Use --resume to skip them, or they will be re-run.[/yellow]"
@@ -378,9 +376,7 @@ def _run_implementation_phase(
 
         # Filter out completed stages when in resume mode
         if resume:
-            stages_in_group = [
-                s for s in all_stages_in_group if s.status != StageStatus.COMPLETED
-            ]
+            stages_in_group = [s for s in all_stages_in_group if s.status != StageStatus.COMPLETED]
             skipped_count = len(all_stages_in_group) - len(stages_in_group)
             if skipped_count > 0:
                 logger.info(f"Skipping {skipped_count} completed stage(s) in group {group}")

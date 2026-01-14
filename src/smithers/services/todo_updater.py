@@ -85,9 +85,7 @@ class TodoUpdater:
         updated_content = content.replace(stage_section, updated_section)
         self.todo_file.write_text(updated_content)
 
-        logger.info(
-            f"Updated Stage {stage_number}: status={status.value}, pr={pr_number}"
-        )
+        logger.info(f"Updated Stage {stage_number}: status={status.value}, pr={pr_number}")
         return True
 
     def mark_stages_in_progress(self, stage_numbers: list[int]) -> None:

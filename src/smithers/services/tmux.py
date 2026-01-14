@@ -132,8 +132,7 @@ class TmuxService:
         # Use script to capture terminal output to a file
         # The command writes exit code to a file before exiting
         wrapped_command = (
-            f"SMITHERS_TMUX_WRAPPED=1 {inner_command}; "
-            f"echo $? > {shlex.quote(str(exit_code_file))}"
+            f"SMITHERS_TMUX_WRAPPED=1 {inner_command}; echo $? > {shlex.quote(str(exit_code_file))}"
         )
         script_command = (
             f"script -q {shlex.quote(str(output_log))} -c {shlex.quote(wrapped_command)}"
