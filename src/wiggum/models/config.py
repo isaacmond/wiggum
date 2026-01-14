@@ -1,0 +1,47 @@
+"""Runtime configuration for Wiggum."""
+
+from dataclasses import dataclass, field
+from pathlib import Path
+
+
+@dataclass
+class Config:
+    """Runtime configuration for Wiggum operations."""
+
+    # Claude settings
+    model: str = "claude-opus-4-5-20251101"
+    dangerously_skip_permissions: bool = True
+
+    # Git settings
+    base_branch: str = "main"
+
+    # Tmux settings
+    poll_interval: float = 5.0  # seconds between session status checks
+
+    # Output settings
+    verbose: bool = False
+    dry_run: bool = False
+
+    # Paths
+    temp_dir: Path = field(default_factory=lambda: Path("/tmp"))
+
+    # Tracked state (mutable during execution)
+    created_worktrees: list[str] = field(default_factory=list)
+
+
+# Global config instance (can be overridden via CLI)
+_config: Config | None = None
+
+
+def get_config() -> Config:
+    """Get the current configuration, creating a default if none exists."""
+    global _config  # noqa: PLW0603
+    if _config is None:
+        _config = Config()
+    return _config
+
+
+def set_config(config: Config) -> None:
+    """Set the global configuration."""
+    global _config  # noqa: PLW0603
+    _config = config
