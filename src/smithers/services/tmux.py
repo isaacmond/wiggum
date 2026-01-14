@@ -2,6 +2,7 @@
 
 import os
 import platform
+import selectors
 import shlex
 import signal
 import subprocess
@@ -174,6 +175,8 @@ class TmuxService:
         )
         console.print("Reconnect anytime with: [cyan]smithers rejoin[/cyan]")
         console.print()
+        # Flush stdout to ensure messages appear before we enter the streaming loop
+        sys.stdout.flush()
         self._record_last_session_hint(session=session, command=inner_command)
 
         # Create detached tmux session
@@ -287,8 +290,6 @@ class TmuxService:
         Returns:
             The exit code from the session (0 if detached by user)
         """
-        import selectors
-
         detached = False
         tail_proc: subprocess.Popen[bytes] | None = None
 
@@ -326,6 +327,11 @@ class TmuxService:
                 stderr=subprocess.DEVNULL,
             )
 
+            # Set pipe to non-blocking mode to prevent read() from blocking
+            # even after select() indicates data is available
+            stdout_fd = tail_proc.stdout.fileno()  # type: ignore[union-attr]
+            os.set_blocking(stdout_fd, False)
+
             # Use selectors for non-blocking reads with timeout
             sel = selectors.DefaultSelector()
             sel.register(tail_proc.stdout, selectors.EVENT_READ)  # type: ignore[arg-type]
@@ -336,11 +342,16 @@ class TmuxService:
                 # Wait for data with a short timeout
                 events = sel.select(timeout=0.05)
 
-                for key, _ in events:
-                    data = key.fileobj.read(8192)  # type: ignore[union-attr]
-                    if data:
-                        sys.stdout.buffer.write(data)
-                        sys.stdout.buffer.flush()
+                for _key, _ in events:
+                    # Use os.read() for truly non-blocking reads
+                    try:
+                        data = os.read(stdout_fd, 8192)
+                        if data:
+                            sys.stdout.buffer.write(data)
+                            sys.stdout.buffer.flush()
+                    except BlockingIOError:
+                        # No data available right now, continue
+                        pass
 
                 # Periodically check if session is still running (expensive operation)
                 now = time.time()
