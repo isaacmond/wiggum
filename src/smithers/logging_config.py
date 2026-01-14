@@ -176,3 +176,31 @@ def cleanup_old_logs(max_age_days: int = 30) -> None:
                 logger.debug(f"Cleaned up old log file: {log_file}")
         except OSError as e:
             logger.warning(f"Failed to clean up log file {log_file}: {e}")
+
+
+def cleanup_old_sessions(max_age_days: int = 7) -> None:
+    """Remove old session output directories.
+
+    Args:
+        max_age_days: Delete session directories older than this many days
+    """
+    import shutil
+
+    sessions_dir = Path.home() / ".smithers" / "sessions"
+    if not sessions_dir.exists():
+        return
+
+    cutoff = datetime.now(tz=UTC).timestamp() - (max_age_days * 24 * 60 * 60)
+    logger = get_logger("smithers.logging")
+
+    for session_dir in sessions_dir.iterdir():
+        if not session_dir.is_dir():
+            continue
+
+        try:
+            # Use the directory's modification time
+            if session_dir.stat().st_mtime < cutoff:
+                shutil.rmtree(session_dir)
+                logger.debug(f"Cleaned up old session directory: {session_dir}")
+        except OSError as e:
+            logger.warning(f"Failed to clean up session directory {session_dir}: {e}")

@@ -149,3 +149,113 @@ class TestEdgeCases:
         todo = TodoFile.parse_content(content)
         assert todo.stages[0].status == StageStatus.COMPLETED
         assert todo.stages[0].pr_number == 123
+
+
+class TestTodoFileFiltering:
+    """Tests for TodoFile filtering methods."""
+
+    def test_get_completed_stages_none(self, sample_todo_content: str) -> None:
+        """Test get_completed_stages when no stages are completed."""
+        todo = TodoFile.parse_content(sample_todo_content)
+
+        completed = todo.get_completed_stages()
+
+        assert len(completed) == 0
+
+    def test_get_completed_stages_some(self) -> None:
+        """Test get_completed_stages with mixed statuses."""
+        content = """# Plan
+
+## Stages
+
+### Stage 1: Done
+- **Status**: completed
+- **Branch**: branch-1
+- **Parallel group**: 1
+- **PR**: #100
+
+### Stage 2: In Progress
+- **Status**: in_progress
+- **Branch**: branch-2
+- **Parallel group**: 1
+
+### Stage 3: Pending
+- **Status**: pending
+- **Branch**: branch-3
+- **Parallel group**: 2
+"""
+        todo = TodoFile.parse_content(content)
+
+        completed = todo.get_completed_stages()
+
+        assert len(completed) == 1
+        assert completed[0].number == 1
+        assert completed[0].status == StageStatus.COMPLETED
+
+    def test_get_incomplete_stages_all(self, sample_todo_content: str) -> None:
+        """Test get_incomplete_stages when all are pending."""
+        todo = TodoFile.parse_content(sample_todo_content)
+
+        incomplete = todo.get_incomplete_stages()
+
+        assert len(incomplete) == 3
+        for stage in incomplete:
+            assert stage.status != StageStatus.COMPLETED
+
+    def test_get_incomplete_stages_mixed(self) -> None:
+        """Test get_incomplete_stages with mixed statuses."""
+        content = """# Plan
+
+## Stages
+
+### Stage 1: Done
+- **Status**: completed
+- **Branch**: branch-1
+- **Parallel group**: 1
+- **PR**: #100
+
+### Stage 2: In Progress
+- **Status**: in_progress
+- **Branch**: branch-2
+- **Parallel group**: 1
+
+### Stage 3: Pending
+- **Status**: pending
+- **Branch**: branch-3
+- **Parallel group**: 2
+"""
+        todo = TodoFile.parse_content(content)
+
+        incomplete = todo.get_incomplete_stages()
+
+        assert len(incomplete) == 2
+        assert incomplete[0].number == 2
+        assert incomplete[0].status == StageStatus.IN_PROGRESS
+        assert incomplete[1].number == 3
+        assert incomplete[1].status == StageStatus.PENDING
+
+    def test_get_completed_stages_all(self) -> None:
+        """Test get_completed_stages when all are completed."""
+        content = """# Plan
+
+## Stages
+
+### Stage 1: Done
+- **Status**: completed
+- **Branch**: branch-1
+- **Parallel group**: 1
+- **PR**: #100
+
+### Stage 2: Also Done
+- **Status**: completed
+- **Branch**: branch-2
+- **Parallel group**: 1
+- **PR**: #101
+"""
+        todo = TodoFile.parse_content(content)
+
+        completed = todo.get_completed_stages()
+        incomplete = todo.get_incomplete_stages()
+
+        assert len(completed) == 2
+        assert len(incomplete) == 0

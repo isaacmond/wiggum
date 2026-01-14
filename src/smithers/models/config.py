@@ -26,10 +26,12 @@ class Config:
     # Paths
     temp_dir: Path = field(default_factory=lambda: Path("/tmp"))
     plans_dir: Path = field(default_factory=lambda: Path.home() / ".smithers" / "plans")
+    sessions_dir: Path = field(default_factory=lambda: Path.home() / ".smithers" / "sessions")
 
     def __post_init__(self) -> None:
-        """Ensure plans directory exists."""
+        """Ensure required directories exist."""
         self.plans_dir.mkdir(parents=True, exist_ok=True)
+        self.sessions_dir.mkdir(parents=True, exist_ok=True)
 
     # Tracked state (mutable during execution)
     created_worktrees: list[str] = field(default_factory=list)

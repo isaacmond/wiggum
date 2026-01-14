@@ -2,17 +2,27 @@
 
 import os
 import shlex
+import signal
 import subprocess
 import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
 
-from smithers.console import console, create_progress, print_info
+from smithers.console import (
+    console,
+    create_progress,
+    print_detach_message,
+    print_info,
+    print_session_complete,
+)
 from smithers.exceptions import DependencyMissingError, TmuxError
 from smithers.logging_config import get_logger, log_subprocess_result
 
 logger = get_logger("smithers.services.tmux")
+
+# Default sessions directory
+DEFAULT_SESSIONS_DIR = Path.home() / ".smithers" / "sessions"
 
 
 @dataclass
@@ -82,6 +92,9 @@ class TmuxService:
     def ensure_rejoinable_session(self, session_name: str, argv: list[str]) -> None:
         """Run smithers inside tmux so it can be reattached if the terminal drops.
 
+        Creates a detached tmux session and streams output to the console in real-time.
+        User can press Ctrl+C to detach without killing the session.
+
         This method is a no-op when already inside tmux, when wrapping is
         explicitly disabled, or when running in a non-TTY environment (e.g.
         tests or redirected output).
@@ -110,38 +123,190 @@ class TmuxService:
         self.ensure_dependencies()
 
         session = self.sanitize_session_name(session_name)
-        command = " ".join(shlex.quote(arg) for arg in argv)
-        tmux_cmd = [
-            "tmux",
-            "new-session",
-            "-A",
-            "-s",
-            session,
-            f"SMITHERS_TMUX_WRAPPED=1 {command}",
-        ]
+        session_dir = self._get_session_dir(session)
+        output_log = session_dir / "output.log"
+        exit_code_file = session_dir / "exit_code"
+
+        # Build the inner command with script wrapper
+        inner_command = " ".join(shlex.quote(arg) for arg in argv)
+        # Use script to capture terminal output to a file
+        # The command writes exit code to a file before exiting
+        wrapped_command = (
+            f"SMITHERS_TMUX_WRAPPED=1 {inner_command}; echo $? > {shlex.quote(str(exit_code_file))}"
+        )
+        script_command = (
+            f"script -q {shlex.quote(str(output_log))} -c {shlex.quote(wrapped_command)}"
+        )
 
         logger.info(f"Creating rejoinable tmux session: {session}")
-        logger.debug(f"  tmux command: {' '.join(tmux_cmd)}")
-        logger.debug(f"  inner command: {command}")
+        logger.debug(f"  session_dir: {session_dir}")
+        logger.debug(f"  output_log: {output_log}")
+        logger.debug(f"  inner command: {inner_command}")
 
         print_info(
             f"Running smithers in tmux session '{session}' so you can reattach if disconnected."
         )
-        console.print(f"Reconnect anytime with: [cyan]tmux attach -t {session}[/cyan]")
-        self._record_last_session_hint(session=session, command=command)
+        console.print("Reconnect anytime with: [cyan]smithers rejoin[/cyan]")
+        console.print()
+        self._record_last_session_hint(session=session, command=inner_command)
+
+        # Create detached tmux session
+        self._create_detached_session(session, script_command)
+
+        # Stream output to console
+        exit_code = self._stream_session_output(session, output_log, exit_code_file)
+
+        raise SystemExit(exit_code)
+
+    def _get_session_dir(self, session: str) -> Path:
+        """Get or create the directory for a session's output files.
+
+        Args:
+            session: The sanitized session name
+
+        Returns:
+            Path to the session directory
+        """
+        session_dir = DEFAULT_SESSIONS_DIR / session
+        session_dir.mkdir(parents=True, exist_ok=True)
+        return session_dir
+
+    def _create_detached_session(self, session: str, command: str) -> None:
+        """Create a detached tmux session running the given command.
+
+        Args:
+            session: Session name (already sanitized)
+            command: Command to run in the session
+
+        Raises:
+            TmuxError: If session creation fails
+        """
+        tmux_cmd = [
+            "tmux",
+            "new-session",
+            "-d",  # Detached
+            "-s",
+            session,
+            command,
+        ]
+
+        logger.debug(f"Creating detached tmux session: {' '.join(tmux_cmd)}")
 
         try:
             result = subprocess.run(
                 tmux_cmd,
-                check=False,
+                capture_output=True,
+                check=True,
                 text=True,
             )
-            logger.info(f"Tmux session '{session}' exited with code: {result.returncode}")
-        except subprocess.SubprocessError as e:
-            logger.exception(f"Failed to start tmux session '{session}'")
-            raise TmuxError(f"Failed to start tmux session '{session}': {e}") from e
+            log_subprocess_result(logger, tmux_cmd, result.returncode, result.stdout, result.stderr)
+            logger.info(f"Detached tmux session '{session}' created successfully")
+        except subprocess.CalledProcessError as e:
+            log_subprocess_result(logger, tmux_cmd, e.returncode, e.stdout, e.stderr, success=False)
+            logger.exception(f"Failed to create tmux session '{session}': {e.stderr}")
+            raise TmuxError(f"Failed to create tmux session '{session}': {e.stderr}") from e
 
-        raise SystemExit(result.returncode)
+    def _stream_session_output(
+        self,
+        session: str,
+        log_file: Path,
+        exit_code_file: Path,
+        poll_interval: float = 0.1,
+    ) -> int:
+        """Stream output from log file until session completes or user detaches.
+
+        Args:
+            session: The tmux session name
+            log_file: Path to the output log file
+            exit_code_file: Path to the exit code file
+            poll_interval: Seconds between reads
+
+        Returns:
+            The exit code from the session (0 if detached by user)
+        """
+        detached = False
+
+        def handle_sigint(_signum: int, _frame: object) -> None:
+            nonlocal detached
+            detached = True
+
+        # Set up signal handler for graceful detach
+        original_handler = signal.signal(signal.SIGINT, handle_sigint)
+
+        try:
+            # Wait for log file to be created (with timeout)
+            wait_start = time.time()
+            while not log_file.exists() and time.time() - wait_start < 5.0:
+                if not self.session_exists(session):
+                    logger.error(f"Session '{session}' exited before output was available")
+                    return 1
+                time.sleep(0.1)
+
+            if not log_file.exists():
+                logger.warning(f"Log file not created after 5s: {log_file}")
+                # Fall back to waiting for session
+                while self.session_exists(session) and not detached:
+                    time.sleep(poll_interval)
+                if detached:
+                    print_detach_message(session)
+                    return 0
+                return self._read_exit_code(exit_code_file)
+
+            # Stream the log file
+            with log_file.open("rb") as f:
+                while not detached:
+                    data = f.read(4096)
+                    if data:
+                        # Write raw bytes to stdout to preserve ANSI codes
+                        sys.stdout.buffer.write(data)
+                        sys.stdout.buffer.flush()
+                    else:
+                        # No new data - check if session is still running
+                        if not self.session_exists(session):
+                            # Session ended - read any remaining output
+                            remaining = f.read()
+                            if remaining:
+                                sys.stdout.buffer.write(remaining)
+                                sys.stdout.buffer.flush()
+                            break
+                        time.sleep(poll_interval)
+
+            if detached:
+                print_detach_message(session)
+                return 0
+
+            # Session completed - get exit code
+            exit_code = self._read_exit_code(exit_code_file)
+            print_session_complete(exit_code)
+            return exit_code
+
+        finally:
+            # Restore original signal handler
+            signal.signal(signal.SIGINT, original_handler)
+
+    def _read_exit_code(self, exit_code_file: Path) -> int:
+        """Read the exit code from the marker file.
+
+        Args:
+            exit_code_file: Path to the exit code file
+
+        Returns:
+            The exit code, or 1 if not found
+        """
+        # Give a moment for the file to be written
+        for _ in range(10):
+            if exit_code_file.exists():
+                try:
+                    content = exit_code_file.read_text().strip()
+                    if content.isdigit():
+                        return int(content)
+                except OSError:
+                    pass
+                break
+            time.sleep(0.1)
+
+        logger.warning(f"Could not read exit code from {exit_code_file}")
+        return 1
 
     def create_session(
         self,

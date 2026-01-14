@@ -128,6 +128,14 @@ class TodoFile:
         stage = self.get_stage_by_number(stage_number)
         return stage.branch if stage else None
 
+    def get_completed_stages(self) -> list[Stage]:
+        """Get all stages with completed status."""
+        return [s for s in self.stages if s.status == StageStatus.COMPLETED]
+
+    def get_incomplete_stages(self) -> list[Stage]:
+        """Get all stages that are not completed (pending or in_progress)."""
+        return [s for s in self.stages if s.status != StageStatus.COMPLETED]
+
 
 def _parse_stage_line(line: str, data: dict[str, object]) -> dict[str, object]:
     """Parse a single line from a stage section."""

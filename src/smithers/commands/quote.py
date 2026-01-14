@@ -101,10 +101,7 @@ SMITHERS_QUOTES: tuple[str, ...] = (
     "I work for Monty Burns, M-M-M-M-Monty Burns!",
     "People like dogs, Mr. Burns.",
     # Not actually Smithers - this is Burns' computer speaking TO him. Too funny to omit.
-    (
-        "Hello, Smithers. You're quite good at turning me on. "
-        "You probably should ignore that."
-    ),
+    ("Hello, Smithers. You're quite good at turning me on. You probably should ignore that."),
 )
 
 

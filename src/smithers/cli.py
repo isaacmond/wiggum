@@ -11,7 +11,12 @@ from smithers.commands.quote import quote
 from smithers.commands.rejoin import rejoin
 from smithers.commands.sessions import sessions
 from smithers.commands.update import update
-from smithers.logging_config import cleanup_old_logs, get_logger, setup_logging
+from smithers.logging_config import (
+    cleanup_old_logs,
+    cleanup_old_sessions,
+    get_logger,
+    setup_logging,
+)
 from smithers.services.version import check_for_updates
 
 # Create the Typer app
@@ -54,6 +59,7 @@ def main(
     # Initialize logging early
     setup_logging()
     cleanup_old_logs(max_age_days=30)
+    cleanup_old_sessions(max_age_days=7)
 
     logger = get_logger("smithers.cli")
 

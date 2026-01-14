@@ -50,3 +50,37 @@ def create_progress() -> Progress:
         TimeElapsedColumn(),
         console=console,
     )
+
+
+def print_detach_message(session: str) -> None:
+    """Print the detach/reconnect instructions when user presses Ctrl+C."""
+    console.print()
+    console.print(
+        Panel.fit(
+            f"[yellow]Detached from session.[/yellow]\n\n"
+            f"The session [cyan]{session}[/cyan] is still running in the background.\n\n"
+            f"Reconnect with: [bold cyan]smithers rejoin[/bold cyan]",
+            title="[bold]Session Detached[/bold]",
+            border_style="yellow",
+        )
+    )
+
+
+def print_session_complete(exit_code: int) -> None:
+    """Print session completion message with exit code."""
+    if exit_code == 0:
+        console.print()
+        console.print(
+            Panel.fit(
+                "[green]Session completed successfully.[/green]",
+                border_style="green",
+            )
+        )
+    else:
+        console.print()
+        console.print(
+            Panel.fit(
+                f"[red]Session exited with code {exit_code}.[/red]",
+                border_style="red",
+            )
+        )

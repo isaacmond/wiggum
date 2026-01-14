@@ -19,6 +19,7 @@ from smithers.prompts.planning import render_planning_prompt
 from smithers.services.claude import ClaudeService
 from smithers.services.git import GitService
 from smithers.services.tmux import TmuxService
+from smithers.services.todo_updater import TodoUpdater
 
 logger = get_logger("smithers.commands.implement")
 
@@ -136,6 +137,10 @@ def implement(
         bool,
         typer.Option("--verbose", "-v", help="Enable verbose output"),
     ] = False,
+    resume: Annotated[
+        bool,
+        typer.Option("--resume", "-r", help="Resume from checkpoint - skip completed stages"),
+    ] = False,
 ) -> None:
     """Implement a design document as staged PRs.
 
@@ -153,6 +158,7 @@ def implement(
     logger.info(f"  branch_prefix: {branch_prefix}")
     logger.info(f"  dry_run: {dry_run}")
     logger.info(f"  verbose: {verbose}")
+    logger.info(f"  resume: {resume}")
     logger.info("=" * 60)
 
     # Set up configuration
@@ -228,6 +234,7 @@ def implement(
                 tmux_service=tmux_service,
                 claude_service=claude_service,
                 config=config,
+                resume=resume,
             )
         else:
             logger.info("Phase 1: Planning")
@@ -251,6 +258,7 @@ def implement(
                 tmux_service=tmux_service,
                 claude_service=claude_service,
                 config=config,
+                resume=resume,
             )
     except SmithersError as e:
         logger.error(f"SmithersError: {e}", exc_info=True)
@@ -293,13 +301,28 @@ def _run_implementation_phase(
     tmux_service: TmuxService,
     claude_service: ClaudeService,
     config: Config,
+    resume: bool = False,
 ) -> list[int]:
     """Run the implementation phase - execute stages by parallel group.
 
+    Args:
+        design_doc: Path to the design document.
+        design_content: Content of the design document.
+        todo_file: Path to the TODO file.
+        base_branch: Base branch name.
+        git_service: Git service instance.
+        tmux_service: Tmux service instance.
+        claude_service: Claude service instance.
+        config: Configuration instance.
+        resume: If True, skip stages that are already completed.
+
     Returns:
-        List of PR numbers created
+        List of PR numbers created (including previously completed if resuming).
     """
-    logger.info(f"Starting implementation phase: todo_file={todo_file}, base_branch={base_branch}")
+    logger.info(
+        f"Starting implementation phase: todo_file={todo_file}, "
+        f"base_branch={base_branch}, resume={resume}"
+    )
     todo = TodoFile.parse(todo_file)
     parallel_groups = todo.get_parallel_groups_in_order()
 
@@ -311,19 +334,64 @@ def _run_implementation_phase(
     logger.info(f"Parallel groups: {parallel_groups}")
     console.print(f"Parallel groups to process: [cyan]{', '.join(parallel_groups)}[/cyan]")
 
+    # Initialize the TODO updater for checkpointing
+    todo_updater = TodoUpdater(todo_file)
+
     collected_prs: list[int] = []
+
+    # Handle resume mode - collect PRs from already completed stages
+    if resume:
+        completed_stages = todo.get_completed_stages()
+        if completed_stages:
+            completed_nums = [s.number for s in completed_stages]
+            for stage in completed_stages:
+                if stage.pr_number:
+                    collected_prs.append(stage.pr_number)
+                    logger.info(
+                        f"Resume: Including existing PR #{stage.pr_number} "
+                        f"from Stage {stage.number}"
+                    )
+            console.print(
+                f"[cyan]Resume mode: Skipping {len(completed_stages)} completed stage(s): "
+                f"{completed_nums}[/cyan]"
+            )
+    else:
+        # Warn if there are completed stages but not resuming
+        completed_stages = todo.get_completed_stages()
+        if completed_stages:
+            completed_nums = [s.number for s in completed_stages]
+            logger.warning(f"Found completed stages {completed_nums} but --resume not specified")
+            console.print(
+                f"[yellow]Warning: Found {len(completed_stages)} completed stage(s) "
+                f"{completed_nums}. Use --resume to skip them, or they will be re-run.[/yellow]"
+            )
+
+    from smithers.models.stage import StageStatus
 
     for group in parallel_groups:
         logger.info(f"Processing parallel group: {group}")
         print_header(f"PROCESSING PARALLEL GROUP: {group}")
 
-        stages_in_group = todo.get_stages_by_group().get(group, [])
+        all_stages_in_group = todo.get_stages_by_group().get(group, [])
+
+        # Filter out completed stages when in resume mode
+        if resume:
+            stages_in_group = [s for s in all_stages_in_group if s.status != StageStatus.COMPLETED]
+            skipped_count = len(all_stages_in_group) - len(stages_in_group)
+            if skipped_count > 0:
+                logger.info(f"Skipping {skipped_count} completed stage(s) in group {group}")
+                console.print(
+                    f"[dim]Skipping {skipped_count} completed stage(s) in group {group}[/dim]"
+                )
+        else:
+            stages_in_group = all_stages_in_group
+
         if not stages_in_group:
-            logger.warning(f"No stages found for group {group}")
-            console.print(f"[yellow]No stages found for group {group}[/yellow]")
+            logger.info(f"No stages to process for group {group}")
+            console.print(f"[dim]Group {group}: all stages completed, skipping[/dim]")
             continue
 
-        logger.info(f"Group {group} has {len(stages_in_group)} stages")
+        logger.info(f"Group {group} has {len(stages_in_group)} stages to process")
 
         # Prepare worktrees and prompts for all stages
         group_data: list[StageData] = []
@@ -370,6 +438,11 @@ def _run_implementation_phase(
                     "exit_file": exit_file,
                 }
             )
+
+        # Mark all stages in this group as in_progress before launching
+        stage_numbers = [data["stage"].number for data in group_data]
+        todo_updater.mark_stages_in_progress(stage_numbers)
+        console.print(f"Marked stages {stage_numbers} as in_progress")
 
         # Launch all Claude sessions in parallel
         console.print(f"\nLaunching {len(group_data)} Claude session(s) in parallel...")
@@ -432,14 +505,31 @@ def _run_implementation_phase(
                     collected_prs.append(pr_num)
                     logger.info(f"Stage {stage.number} complete: PR #{pr_num}")
                     print_success(f"Stage {stage.number} complete. PR #{pr_num}")
+
+                    # Update TODO file with completed status and PR number
+                    todo_updater.update_stage_status(
+                        stage_number=stage.number,
+                        status=StageStatus.COMPLETED,
+                        pr_number=pr_num,
+                    )
                 else:
                     msg = f"Could not extract PR number for Stage {stage.number}"
                     logger.warning(msg)
                     console.print(f"[yellow]Warning: {msg}[/yellow]")
+                    # Stage stays as in_progress - user needs to investigate
+                    console.print(
+                        f"[yellow]Stage {stage.number} kept as in_progress - "
+                        f"verify completion manually[/yellow]"
+                    )
             else:
                 logger.warning(f"No output file found for Stage {stage.number}: {output_file}")
                 console.print(
                     f"[yellow]Warning: No output file found for Stage {stage.number}[/yellow]"
+                )
+                # Stage stays as in_progress - user needs to investigate
+                console.print(
+                    f"[yellow]Stage {stage.number} kept as in_progress - "
+                    f"verify completion manually[/yellow]"
                 )
 
             # Cleanup temp files

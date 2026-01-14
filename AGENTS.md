@@ -1,5 +1,9 @@
 # Agent Guidelines
 
+## Code Style
+
+- **NEVER** use `from __future__ import annotations` or any other `__future__` imports
+
 ## Before Merging to `main`
 
 **ALWAYS** verify the following checks pass before merging any changes into `main`:

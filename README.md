@@ -19,7 +19,9 @@ Like Mr. Burns' ever-faithful assistant, Smithers diligently handles the details
 - **Implement Mode**: Analyzes design documents and creates staged PRs with parallel execution
 - **Fix Mode**: Loops until all review comments are addressed and CI passes
 - **Plan Mode**: Interactively create implementation plans with Claude before implementing
+- **Streaming Output**: See real-time output while sessions run in the background; Ctrl+C to detach without stopping
 - **Session Management**: Rejoin running tmux sessions after detaching or disconnecting
+- **Checkpoint & Resume**: Automatically saves progress; resume interrupted runs with `--resume`
 - **Parallel Execution**: Uses git worktrees and tmux for concurrent stage implementation
 - **Claude AI Powered**: Leverages Claude Code CLI for intelligent code generation
 
@@ -62,6 +64,9 @@ smithers implement docs/my-feature.md --model claude-sonnet-4-20250514
 
 # Use an existing plan file (skip planning phase)
 smithers implement docs/my-feature.md --todo-file ~/.smithers/plans/my-plan.md
+
+# Resume an interrupted run (skip completed stages)
+smithers implement docs/my-feature.md --todo-file ~/.smithers/plans/my-plan.md --resume
 ```
 
 ### Fix PR Review Comments
@@ -91,6 +96,12 @@ Creates a plan file via an interactive Claude session that can later be used wit
 
 ### Session Management
 
+Smithers runs long operations in background tmux sessions while streaming output to your terminal in real-time. This means:
+
+- **You see all output** as it happens, just like running a command directly
+- **Press Ctrl+C to detach** without stopping the session - it continues in the background
+- **Reconnect anytime** with `smithers rejoin` if you detach or get disconnected
+
 ```bash
 # List all running smithers tmux sessions
 smithers sessions
@@ -119,6 +130,7 @@ smithers update
 | `--base` | `-b` | Base branch for PRs (default: main) | implement |
 | `--todo-file` | `-t` | Existing plan file to use | implement |
 | `--branch-prefix` | `-p` | Prefix for branch names (e.g., `username/`) | implement |
+| `--resume` | `-r` | Resume from checkpoint, skip completed stages | implement |
 | `--max-iterations` | | Max fix iterations, 0=unlimited (default: 0) | fix |
 | `--dry-run` | `-n` | Show what would be done without executing | implement, fix |
 | `--verbose` | `-v` | Enable verbose output | all |
@@ -139,7 +151,28 @@ smithers update
    - Git worktrees are created for each stage
    - Claude runs in parallel tmux sessions
    - PRs are created for each stage
+   - **Checkpointing**: Stage status and PR numbers are saved to the TODO file as each stage completes
 3. **Transition**: Automatically transitions to Fix mode with created PRs
+
+#### Detaching and Resuming
+
+You can safely detach from a running session at any time:
+
+- **Press Ctrl+C** to detach - the session continues running in the background
+- **Close your terminal** - the session keeps running
+- **Lose your connection** - no problem, the session persists
+
+To reconnect or resume:
+
+```bash
+# Rejoin the running tmux session (if still active)
+smithers rejoin
+
+# Or resume using the checkpoint in the TODO file
+smithers implement docs/my-feature.md --todo-file ~/.smithers/plans/my-feature.smithers-*.md --resume
+```
+
+The `--resume` flag skips stages already marked as `completed` in the TODO file and includes their PR numbers in the final output.
 
 ### Fix Mode
 
