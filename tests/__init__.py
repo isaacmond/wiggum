@@ -1,1 +1,1 @@
-"""Tests for Wiggum."""
+"""Tests for Smithers."""

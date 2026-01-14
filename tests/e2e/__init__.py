@@ -1,1 +1,1 @@
-"""End-to-end tests for Wiggum."""
+"""End-to-end tests for Smithers."""

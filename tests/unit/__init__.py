@@ -1,1 +1,1 @@
-"""Unit tests for Wiggum."""
+"""Unit tests for Smithers."""

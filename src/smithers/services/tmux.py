@@ -1,6 +1,7 @@
 """Tmux session management service."""
 
 import os
+import platform
 import shlex
 import signal
 import subprocess
@@ -134,9 +135,18 @@ class TmuxService:
         wrapped_command = (
             f"SMITHERS_TMUX_WRAPPED=1 {inner_command}; echo $? > {shlex.quote(str(exit_code_file))}"
         )
-        script_command = (
-            f"script -q {shlex.quote(str(output_log))} -c {shlex.quote(wrapped_command)}"
-        )
+        # macOS (BSD) and Linux (GNU) have different script command syntax:
+        # - Linux: script -q FILE -c "COMMAND"
+        # - macOS: script -q FILE COMMAND... (no -c flag, command is positional)
+        if platform.system() == "Darwin":
+            script_command = (
+                f"script -q {shlex.quote(str(output_log))} "
+                f"/bin/sh -c {shlex.quote(wrapped_command)}"
+            )
+        else:
+            script_command = (
+                f"script -q {shlex.quote(str(output_log))} -c {shlex.quote(wrapped_command)}"
+            )
 
         logger.info(f"Creating rejoinable tmux session: {session}")
         logger.debug(f"  session_dir: {session_dir}")
