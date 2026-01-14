@@ -56,6 +56,7 @@ def run_planning_session(
         design_doc_path=design_doc,
         design_content=design_content,
         todo_file_path=todo_file,
+        branch_prefix=config.branch_prefix,
     )
 
     print_info("Running Claude Code for planning...")
@@ -110,6 +111,14 @@ def implement(
             readable=True,
         ),
     ] = None,
+    branch_prefix: Annotated[
+        str,
+        typer.Option(
+            "--branch-prefix",
+            "-p",
+            help="Prefix for branch names (e.g., 'username/' for 'username/stage-1-models')",
+        ),
+    ] = "",
     dry_run: Annotated[
         bool,
         typer.Option("--dry-run", "-n", help="Show what would be done without executing"),
@@ -130,6 +139,7 @@ def implement(
     config = Config(
         model=model,
         base_branch=base_branch,
+        branch_prefix=branch_prefix,
         dry_run=dry_run,
         verbose=verbose,
     )
@@ -167,6 +177,8 @@ def implement(
     console.print(f"Design doc: [cyan]{design_doc}[/cyan]")
     console.print(f"TODO file: [cyan]{todo_file_path}[/cyan]")
     console.print(f"Base branch: [cyan]{base_branch}[/cyan]")
+    if branch_prefix:
+        console.print(f"Branch prefix: [cyan]{branch_prefix}[/cyan]")
     console.print(f"Model: [cyan]{model}[/cyan]")
 
     if dry_run:

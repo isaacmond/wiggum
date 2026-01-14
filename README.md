@@ -108,6 +108,7 @@ smithers update
 | `--model` | `-m` | Claude model to use (default: claude-opus-4-5-20251101) | all |
 | `--base` | `-b` | Base branch for PRs (default: main) | implement |
 | `--todo-file` | `-t` | Existing plan file to use | implement |
+| `--branch-prefix` | `-p` | Prefix for branch names (e.g., `username/`) | implement |
 | `--max-iterations` | | Max fix iterations, 0=unlimited (default: 0) | fix |
 | `--dry-run` | `-n` | Show what would be done without executing | implement, fix |
 | `--verbose` | `-v` | Enable verbose output | all |

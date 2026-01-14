@@ -37,6 +37,37 @@ class TestPlanningPrompt:
         assert "Depends on" in prompt
         assert "Acceptance criteria" in prompt
 
+    def test_render_planning_prompt_with_branch_prefix(self) -> None:
+        """Test rendering the planning prompt with a branch prefix."""
+        prompt = render_planning_prompt(
+            design_doc_path=Path("/path/to/design.md"),
+            design_content="# Design\n\nThis is the design.",
+            todo_file_path=Path("/path/to/todo.md"),
+            branch_prefix="username/",
+        )
+
+        # Should contain the prefix instruction
+        assert "username/" in prompt
+        assert "username/stage-1-models" in prompt
+        assert "username/stage-2-api" in prompt
+        assert "Branch Naming Convention" in prompt
+        assert "MUST start with the prefix" in prompt
+
+    def test_render_planning_prompt_without_branch_prefix(self) -> None:
+        """Test that without branch prefix, examples don't have prefix."""
+        prompt = render_planning_prompt(
+            design_doc_path=Path("/path/to/design.md"),
+            design_content="# Design",
+            todo_file_path=Path("/path/to/todo.md"),
+            branch_prefix="",
+        )
+
+        # Should contain unprefixed examples
+        assert "stage-1-models" in prompt
+        assert "stage-2-api" in prompt
+        # Should not contain the prefix instruction section
+        assert "Branch Naming Convention" not in prompt
+
 
 class TestImplementationPrompt:
     """Tests for the implementation prompt template."""

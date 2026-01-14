@@ -1,0 +1,5 @@
+# Code Owners
+# These owners will be requested for review on all PRs
+
+# Global rule - Isaac owns everything
+*       @isaacmond

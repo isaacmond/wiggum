@@ -2,7 +2,7 @@
 
 import sys
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 
 # Backwards compatibility for legacy imports that still use the wiggum name.
 sys.modules.setdefault("wiggum", sys.modules[__name__])

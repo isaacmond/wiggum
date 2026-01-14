@@ -14,6 +14,7 @@ class Config:
 
     # Git settings
     base_branch: str = "main"
+    branch_prefix: str = ""  # e.g., "username/" for branches like "username/stage-1-models"
 
     # Tmux settings
     poll_interval: float = 5.0  # seconds between session status checks

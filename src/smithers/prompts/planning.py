@@ -13,7 +13,7 @@ Location: {design_doc_path}
 
 ## Your Task
 Analyze this design document and create a detailed implementation plan. You will output this plan as a TODO file that will guide subsequent implementation stages.
-
+{branch_prefix_instruction}
 ### Create the TODO File
 Create a file at: {todo_file_path}
 
@@ -29,9 +29,9 @@ The TODO file should have this structure:
 
 ### Stage 1: [Title]
 - **Status**: pending
-- **Branch**: [suggested branch name, e.g., stage-1-models]
+- **Branch**: {branch_example_1}
 - **Parallel group**: [group_id - stages with same group_id run in parallel]
-- **Depends on**: none (or the actual branch name of the dependency, e.g., stage-1-models)
+- **Depends on**: none (or the actual branch name of the dependency, e.g., {branch_example_1})
 - **PR**: (to be filled in)
 - **Description**: [Detailed description of what this stage implements]
 - **Files to create/modify**:
@@ -43,9 +43,9 @@ The TODO file should have this structure:
 
 ### Stage 2: [Title]
 - **Status**: pending
-- **Branch**: [suggested branch name, e.g., stage-2-api]
+- **Branch**: {branch_example_2}
 - **Parallel group**: [group_id]
-- **Depends on**: stage-1-models (use the actual branch name, NOT "Stage 1")
+- **Depends on**: {branch_example_1} (use the actual branch name, NOT "Stage 1")
 - **PR**: (to be filled in)
 - **Description**: [Detailed description]
 - **Files to create/modify**:
@@ -59,7 +59,7 @@ The TODO file should have this structure:
 [Any additional notes, risks, or considerations]
 ```
 
-IMPORTANT: For the "Depends on" field, use the actual branch name (e.g., "stage-1-models"), NOT "Stage 1". Use "none" if there is no dependency.
+IMPORTANT: For the "Depends on" field, use the actual branch name (e.g., "{branch_example_1}"), NOT "Stage 1". Use "none" if there is no dependency.
 
 ### Guidelines
 - Break the work into 2-6 logical stages
@@ -119,6 +119,7 @@ def render_planning_prompt(
     design_doc_path: Path,
     design_content: str,
     todo_file_path: Path,
+    branch_prefix: str = "",
 ) -> str:
     """Render the planning prompt.
 
@@ -126,13 +127,31 @@ def render_planning_prompt(
         design_doc_path: Path to the design document
         design_content: Content of the design document
         todo_file_path: Path where the TODO file should be created
+        branch_prefix: Optional prefix for branch names (e.g., "username/")
 
     Returns:
         The rendered prompt string
     """
+    # Generate branch examples based on prefix
+    if branch_prefix:
+        branch_example_1 = f"{branch_prefix}stage-1-models"
+        branch_example_2 = f"{branch_prefix}stage-2-api"
+        branch_prefix_instruction = f"""
+### Branch Naming Convention
+**IMPORTANT**: All branch names MUST start with the prefix `{branch_prefix}`.
+For example: `{branch_prefix}stage-1-models`, `{branch_prefix}stage-2-api`, etc.
+"""
+    else:
+        branch_example_1 = "stage-1-models"
+        branch_example_2 = "stage-2-api"
+        branch_prefix_instruction = ""
+
     return render_template(
         PLANNING_PROMPT_TEMPLATE,
         design_doc_path=design_doc_path,
         design_content=design_content,
         todo_file_path=todo_file_path,
+        branch_prefix_instruction=branch_prefix_instruction,
+        branch_example_1=branch_example_1,
+        branch_example_2=branch_example_2,
     )
