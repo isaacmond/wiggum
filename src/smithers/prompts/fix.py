@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from wiggum.prompts.templates import (
+from smithers.prompts.templates import (
     MERGE_CONFLICT_SECTION,
     QUALITY_CHECKS_SECTION,
     render_template,

@@ -4,9 +4,9 @@ from pathlib import Path
 
 import pytest
 
-from wiggum.exceptions import TodoParseError
-from wiggum.models.stage import StageStatus
-from wiggum.models.todo import TodoFile
+from smithers.exceptions import TodoParseError
+from smithers.models.stage import StageStatus
+from smithers.models.todo import TodoFile
 
 
 class TestTodoFileParsing:

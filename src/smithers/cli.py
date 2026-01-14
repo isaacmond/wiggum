@@ -1,18 +1,18 @@
-"""Wiggum CLI - Automate PR creation and review fixing with Claude AI."""
+"""Smithers CLI - Your loyal PR automation assistant, powered by Claude AI."""
 
 import typer
 from rich.console import Console
 
-from wiggum import __version__
-from wiggum.commands.fix import fix
-from wiggum.commands.implement import implement
-from wiggum.commands.update import update
-from wiggum.services.version import check_for_updates
+from smithers import __version__
+from smithers.commands.fix import fix
+from smithers.commands.implement import implement
+from smithers.commands.update import update
+from smithers.services.version import check_for_updates
 
 # Create the Typer app
 app = typer.Typer(
-    name="wiggum",
-    help="Automate PR creation and review fixing with Claude AI.",
+    name="smithers",
+    help="Your loyal PR automation assistant, powered by Claude AI.",
     add_completion=False,
     rich_markup_mode="rich",
 )
@@ -36,15 +36,15 @@ def main(
         is_eager=True,
     ),
 ) -> None:
-    """Wiggum - The dogged PR automation tool.
+    """Smithers - Your loyal PR automation assistant.
 
-    Named after Chief Wiggum's persistent approach to problem-solving,
-    this tool automates the creation of staged PRs from design documents
-    and iteratively fixes review comments until everything passes.
+    Like Mr. Burns' ever-faithful assistant, Smithers diligently handles
+    the details of creating staged PRs from design documents and iteratively
+    fixes review comments until everything passes. Excellent.
     """
     if version:
         console = Console()
-        console.print(f"wiggum version {__version__}")
+        console.print(f"smithers version {__version__}")
         check_for_updates()
         raise typer.Exit()
 

@@ -6,8 +6,8 @@ import re
 import pytest
 from typer.testing import CliRunner
 
-from wiggum import __version__
-from wiggum.cli import app
+from smithers import __version__
+from smithers.cli import app
 
 runner = CliRunner()
 
@@ -58,7 +58,7 @@ class TestCLI:
         assert result.exit_code == 0
         output = strip_ansi(result.stdout)
         assert "update" in output.lower()
-        assert "uv tool upgrade wiggum" in output
+        assert "uv tool upgrade smithers" in output
 
     def test_update_command_runs(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test update command execution without calling uv."""
@@ -76,13 +76,13 @@ class TestCLI:
             text: bool,
             check: bool,
         ) -> FakeResult:  # type: ignore[override]
-            assert command == ["uv", "tool", "upgrade", "wiggum"]
+            assert command == ["uv", "tool", "upgrade", "smithers"]
             assert capture_output is True
             assert text is True
             assert check is True
             return FakeResult()
 
-        update_module = importlib.import_module("wiggum.commands.update")
+        update_module = importlib.import_module("smithers.commands.update")
         monkeypatch.setattr(update_module, "which", fake_which)
         monkeypatch.setattr(update_module.subprocess, "run", fake_run)
 
@@ -106,10 +106,10 @@ class TestCLI:
             text: bool,
             check: bool,
         ) -> FakeResult:  # type: ignore[override]
-            assert command == ["uv", "tool", "upgrade", "wiggum"]
+            assert command == ["uv", "tool", "upgrade", "smithers"]
             return FakeResult()
 
-        update_module = importlib.import_module("wiggum.commands.update")
+        update_module = importlib.import_module("smithers.commands.update")
         monkeypatch.setattr(update_module, "which", fake_which)
         monkeypatch.setattr(update_module.subprocess, "run", fake_run)
 

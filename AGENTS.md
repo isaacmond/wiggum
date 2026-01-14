@@ -23,11 +23,11 @@ All three checks must pass with no errors before any PR can be merged.
 
 ## Releasing a New Version
 
-To release a new version of wiggum:
+To release a new version of smithers:
 
 1. **Update version in both locations** (they must match):
    - `pyproject.toml`: Update the `version` field
-   - `src/wiggum/__init__.py`: Update `__version__`
+   - `src/smithers/__init__.py`: Update `__version__`
 
 2. **Run all checks**:
    ```bash
@@ -38,7 +38,7 @@ To release a new version of wiggum:
 
 3. **Commit the version bump** (uv.lock is auto-updated by running checks):
    ```bash
-   git add pyproject.toml src/wiggum/__init__.py uv.lock
+   git add pyproject.toml src/smithers/__init__.py uv.lock
    git commit -m "Bump version to X.Y.Z"
    ```
 

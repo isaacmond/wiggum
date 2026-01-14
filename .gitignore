@@ -70,5 +70,5 @@ venv.bak/
 .DS_Store
 
 # Project specific
-*.wiggum-*.md
+*.smithers-*.md
 .claude/

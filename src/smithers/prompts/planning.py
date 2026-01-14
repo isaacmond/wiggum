@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from wiggum.prompts.templates import render_template
+from smithers.prompts.templates import render_template
 
 PLANNING_PROMPT_TEMPLATE = """You are planning the implementation of a design document.
 

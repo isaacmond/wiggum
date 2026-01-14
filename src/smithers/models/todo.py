@@ -1,11 +1,11 @@
-"""TODO file parser for Wiggum implementation plans."""
+"""TODO file parser for Smithers implementation plans."""
 
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from wiggum.exceptions import TodoParseError
-from wiggum.models.stage import Stage, StageStatus
+from smithers.exceptions import TodoParseError
+from smithers.models.stage import Stage, StageStatus
 
 
 @dataclass

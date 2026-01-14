@@ -1,28 +1,28 @@
-"""Self-update command for wiggum."""
+"""Self-update command for smithers."""
 
 import subprocess
 from shutil import which
 
 import typer
 
-from wiggum.console import console, print_error, print_info, print_success
+from smithers.console import console, print_error, print_info, print_success
 
 
 def update() -> None:
     """
-    Update wiggum to the latest available version using uv.
+    Update smithers to the latest available version using uv.
 
-    This runs `uv tool upgrade wiggum` under the hood.
+    This runs `uv tool upgrade smithers` under the hood.
     """
     if which("uv") is None:
-        print_error("uv is required to update wiggum. Install it from https://docs.astral.sh/uv/")
+        print_error("uv is required to update smithers. Install it from https://docs.astral.sh/uv/")
         raise typer.Exit(1)
 
-    print_info("Updating wiggum with `uv tool upgrade wiggum`...")
+    print_info("Updating smithers with `uv tool upgrade smithers`...")
 
     try:
         result = subprocess.run(
-            ["uv", "tool", "upgrade", "wiggum"],
+            ["uv", "tool", "upgrade", "smithers"],
             capture_output=True,
             text=True,
             check=True,
@@ -30,7 +30,7 @@ def update() -> None:
     except subprocess.CalledProcessError as exc:
         stderr = (exc.stderr or "").strip()
         stdout = (exc.stdout or "").strip()
-        message = stderr or stdout or "uv failed to upgrade wiggum."
+        message = stderr or stdout or "uv failed to upgrade smithers."
         print_error(f"Update failed: {message}")
         raise typer.Exit(exc.returncode) from exc
 
@@ -42,9 +42,9 @@ def update() -> None:
         console.print(stderr)
 
     success_message = (
-        "Wiggum is already up to date."
+        "Smithers is already up to date."
         if "already" in stdout.lower()
-        else "Wiggum updated successfully."
+        else "Smithers updated successfully."
     )
     print_success(f"{success_message} Restart your shell if the old version is still active.")
 

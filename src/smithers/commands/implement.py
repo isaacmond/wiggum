@@ -6,18 +6,18 @@ from typing import TYPE_CHECKING, Annotated, TypedDict
 
 import typer
 
-from wiggum.console import console, print_error, print_header, print_info, print_success
-from wiggum.exceptions import DependencyMissingError, WiggumError
-from wiggum.models.config import Config, set_config
-from wiggum.models.todo import TodoFile
-from wiggum.prompts.implementation import render_implementation_prompt
-from wiggum.prompts.planning import render_planning_prompt
-from wiggum.services.claude import ClaudeService
-from wiggum.services.git import GitService
-from wiggum.services.tmux import TmuxService
+from smithers.console import console, print_error, print_header, print_info, print_success
+from smithers.exceptions import DependencyMissingError, SmithersError
+from smithers.models.config import Config, set_config
+from smithers.models.todo import TodoFile
+from smithers.prompts.implementation import render_implementation_prompt
+from smithers.prompts.planning import render_planning_prompt
+from smithers.services.claude import ClaudeService
+from smithers.services.git import GitService
+from smithers.services.tmux import TmuxService
 
 if TYPE_CHECKING:
-    from wiggum.models.stage import Stage
+    from smithers.models.stage import Stage
 
 
 class StageData(TypedDict):
@@ -91,11 +91,11 @@ def implement(
         console.print("  npm install -g @anthropic-ai/claude-code")
         raise typer.Exit(1) from e
 
-    # Create timestamped TODO file path in ~/.wiggum/plans
+    # Create timestamped TODO file path in ~/.smithers/plans
     timestamp = datetime.now(tz=UTC).strftime("%Y%m%d-%H%M%S")
-    todo_file = config.plans_dir / f"{design_doc.stem}.wiggum-{timestamp}.md"
+    todo_file = config.plans_dir / f"{design_doc.stem}.smithers-{timestamp}.md"
 
-    print_header("Wiggum: Implementing Design Document")
+    print_header("Smithers: Implementing Design Document")
     console.print(f"Design doc: [cyan]{design_doc}[/cyan]")
     console.print(f"TODO file: [cyan]{todo_file}[/cyan]")
     console.print(f"Base branch: [cyan]{base_branch}[/cyan]")
@@ -120,13 +120,13 @@ def implement(
             claude_service=claude_service,
             config=config,
         )
-    except WiggumError as e:
+    except SmithersError as e:
         print_error(str(e))
         raise typer.Exit(1) from e
     finally:
         # Cleanup worktrees on exit
         git_service.cleanup_all_worktrees()
-        tmux_service.kill_all_wiggum_sessions()
+        tmux_service.kill_all_smithers_sessions()
 
     # Report results
     print_header("Implementation Complete!")
@@ -137,7 +137,7 @@ def implement(
     if collected_prs:
         print_info("\nAutomatically transitioning to FIX mode...")
         # Import here to avoid circular import
-        from wiggum.commands.fix import fix as fix_command
+        from smithers.commands.fix import fix as fix_command
 
         fix_command(
             design_doc=design_doc,
@@ -180,18 +180,18 @@ def _run_planning_phase(
         console.print(result.output)
 
     if not result.success:
-        raise WiggumError(f"Claude Code failed during planning: {result.output}")
+        raise SmithersError(f"Claude Code failed during planning: {result.output}")
 
     # Verify TODO file was created
     if not todo_file.exists():
-        raise WiggumError(f"TODO file was not created at {todo_file}")
+        raise SmithersError(f"TODO file was not created at {todo_file}")
 
     # Extract planning output from JSON (with fallback to legacy format)
     json_output = result.extract_json()
     num_stages = json_output.get("num_stages") if json_output else result.extract_int("NUM_STAGES")
 
     if num_stages is None or num_stages < 1:
-        raise WiggumError("Could not determine number of stages from Claude output")
+        raise SmithersError("Could not determine number of stages from Claude output")
 
     print_success(f"Planning complete. TODO file created with {num_stages} stages.")
 
@@ -261,7 +261,7 @@ def _run_implementation_phase(
 
             # Create prompt file
             timestamp = datetime.now(tz=UTC).strftime("%Y%m%d-%H%M%S")
-            prompt_file = config.temp_dir / f"wiggum-stage-{stage.number}-{timestamp}.prompt"
+            prompt_file = config.temp_dir / f"smithers-stage-{stage.number}-{timestamp}.prompt"
             output_file = prompt_file.with_suffix(".prompt.output")
             exit_file = prompt_file.with_suffix(".prompt.exit")
 
@@ -326,7 +326,7 @@ def _run_implementation_phase(
                     console.print(output)
 
                 # Extract PR number from JSON (with fallback to legacy regex)
-                from wiggum.services.claude import ClaudeResult
+                from smithers.services.claude import ClaudeResult
 
                 stage_result = ClaudeResult(output=output, exit_code=0, success=True)
                 json_output = stage_result.extract_json()

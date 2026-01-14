@@ -1,8 +1,8 @@
 """Tests for data models."""
 
-from wiggum.models.config import Config, get_config, set_config
-from wiggum.models.stage import Stage, StageStatus
-from wiggum.services.claude import ClaudeResult
+from smithers.models.config import Config, get_config, set_config
+from smithers.models.stage import Stage, StageStatus
+from smithers.services.claude import ClaudeResult
 
 
 class TestConfig:

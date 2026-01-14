@@ -1,4 +1,4 @@
-"""Runtime configuration for Wiggum."""
+"""Runtime configuration for Smithers."""
 
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -6,7 +6,7 @@ from pathlib import Path
 
 @dataclass
 class Config:
-    """Runtime configuration for Wiggum operations."""
+    """Runtime configuration for Smithers operations."""
 
     # Claude settings
     model: str = "claude-opus-4-5-20251101"
@@ -24,7 +24,7 @@ class Config:
 
     # Paths
     temp_dir: Path = field(default_factory=lambda: Path("/tmp"))
-    plans_dir: Path = field(default_factory=lambda: Path.home() / ".wiggum" / "plans")
+    plans_dir: Path = field(default_factory=lambda: Path.home() / ".smithers" / "plans")
 
     def __post_init__(self) -> None:
         """Ensure plans directory exists."""

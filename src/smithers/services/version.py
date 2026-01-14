@@ -1,4 +1,4 @@
-"""Version checking service for wiggum."""
+"""Version checking service for smithers."""
 
 import json
 import time
@@ -6,15 +6,15 @@ from pathlib import Path
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
-from wiggum import __version__
-from wiggum.console import print_warning
+from smithers import __version__
+from smithers.console import print_warning
 
 # Cache settings
-CACHE_DIR = Path.home() / ".wiggum"
+CACHE_DIR = Path.home() / ".smithers"
 VERSION_CACHE_FILE = CACHE_DIR / "version_cache.json"
 CACHE_TTL_SECONDS = 86400  # 24 hours
 
-GITHUB_API_URL = "https://api.github.com/repos/isaacmond/wiggum/tags"
+GITHUB_API_URL = "https://api.github.com/repos/isaacmond/smithers/tags"
 
 
 def _parse_version(version_str: str) -> tuple[int, ...]:
@@ -37,7 +37,7 @@ def _fetch_latest_version() -> str | None:
     """Fetch the latest version from GitHub tags."""
     try:
         # GitHub API requires a User-Agent header
-        request = Request(GITHUB_API_URL, headers={"User-Agent": "wiggum-version-check"})
+        request = Request(GITHUB_API_URL, headers={"User-Agent": "smithers-version-check"})
         with urlopen(request, timeout=3) as response:
             tags = json.loads(response.read().decode())
             if not tags:
@@ -111,6 +111,6 @@ def check_for_updates() -> None:
 
     if latest > current:
         print_warning(
-            f"A new version of wiggum is available: {latest_version} "
-            f"(you have {__version__}). Run 'wiggum update' to upgrade."
+            f"A new version of smithers is available: {latest_version} "
+            f"(you have {__version__}). Run 'smithers update' to upgrade."
         )

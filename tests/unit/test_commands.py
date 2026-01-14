@@ -2,7 +2,7 @@
 
 import pytest
 
-from wiggum.commands.fix import parse_pr_identifier
+from smithers.commands.fix import parse_pr_identifier
 
 
 class TestParsePrIdentifier:
@@ -17,7 +17,7 @@ class TestParsePrIdentifier:
     def test_parse_github_url(self) -> None:
         """Test parsing GitHub PR URLs."""
         assert parse_pr_identifier("https://github.com/owner/repo/pull/123") == 123
-        assert parse_pr_identifier("https://github.com/Metaview/wiggum/pull/42") == 42
+        assert parse_pr_identifier("https://github.com/Metaview/smithers/pull/42") == 42
 
     def test_parse_github_url_with_www(self) -> None:
         """Test parsing GitHub PR URLs with www prefix."""

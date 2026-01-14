@@ -4,7 +4,7 @@ import json
 import subprocess
 from dataclasses import dataclass
 
-from wiggum.exceptions import DependencyMissingError, GitHubError
+from smithers.exceptions import DependencyMissingError, GitHubError
 
 
 @dataclass

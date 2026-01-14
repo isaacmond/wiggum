@@ -1,11 +1,11 @@
-"""Custom exceptions for Wiggum."""
+"""Custom exceptions for Smithers."""
 
 
-class WiggumError(Exception):
-    """Base exception for all Wiggum errors."""
+class SmithersError(Exception):
+    """Base exception for all Smithers errors."""
 
 
-class DependencyMissingError(WiggumError):
+class DependencyMissingError(SmithersError):
     """Raised when a required external dependency is not installed."""
 
     def __init__(self, dependencies: list[str]) -> None:
@@ -14,21 +14,21 @@ class DependencyMissingError(WiggumError):
         super().__init__(f"Missing required dependencies: {deps_str}")
 
 
-class WorktreeError(WiggumError):
+class WorktreeError(SmithersError):
     """Raised when a git worktree operation fails."""
 
 
-class TmuxError(WiggumError):
+class TmuxError(SmithersError):
     """Raised when a tmux operation fails."""
 
 
-class ClaudeError(WiggumError):
+class ClaudeError(SmithersError):
     """Raised when a Claude CLI operation fails."""
 
 
-class GitHubError(WiggumError):
+class GitHubError(SmithersError):
     """Raised when a GitHub CLI operation fails."""
 
 
-class TodoParseError(WiggumError):
+class TodoParseError(SmithersError):
     """Raised when parsing a TODO file fails."""

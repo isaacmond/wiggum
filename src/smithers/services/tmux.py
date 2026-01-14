@@ -5,8 +5,8 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-from wiggum.console import console, create_progress, print_info
-from wiggum.exceptions import DependencyMissingError, TmuxError
+from smithers.console import console, create_progress, print_info
+from smithers.exceptions import DependencyMissingError, TmuxError
 
 
 @dataclass
@@ -163,8 +163,8 @@ class TmuxService:
             check=False,
         )
 
-    def kill_all_wiggum_sessions(self) -> None:
-        """Kill all tmux sessions that appear to be wiggum-related."""
+    def kill_all_smithers_sessions(self) -> None:
+        """Kill all tmux sessions that appear to be smithers-related."""
         try:
             result = subprocess.run(
                 ["tmux", "list-sessions", "-F", "#{session_name}"],

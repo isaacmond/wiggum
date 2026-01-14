@@ -4,8 +4,8 @@ import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from wiggum.console import print_info, print_warning
-from wiggum.exceptions import DependencyMissingError, WorktreeError
+from smithers.console import print_info, print_warning
+from smithers.exceptions import DependencyMissingError, WorktreeError
 
 
 @dataclass

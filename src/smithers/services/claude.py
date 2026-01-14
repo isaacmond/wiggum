@@ -7,8 +7,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from wiggum.console import print_info
-from wiggum.exceptions import ClaudeError, DependencyMissingError
+from smithers.console import print_info
+from smithers.exceptions import ClaudeError, DependencyMissingError
 
 
 @dataclass

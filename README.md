@@ -1,8 +1,8 @@
-# Wiggum
+# Smithers
 
-Automate PR creation and review fixing with Claude AI.
+Your loyal PR automation assistant, powered by Claude AI.
 
-Named after Chief Wiggum's dogged persistence, this tool implements design documents as staged PRs and iteratively fixes review comments until everything passes.
+Like Mr. Burns' ever-faithful assistant, Smithers diligently handles the details of creating staged PRs from design documents and iteratively fixes review comments until everything passes. Excellent.
 
 ## Features
 
@@ -32,8 +32,8 @@ brew install tmux
 brew install gh
 npm install -g @anthropic-ai/claude-code
 
-# Install wiggum (from local clone)
-uv tool install /path/to/wiggum
+# Install smithers (from local clone)
+uv tool install /path/to/smithers
 ```
 
 ## Usage
@@ -42,20 +42,20 @@ uv tool install /path/to/wiggum
 
 ```bash
 # Create staged PRs from a design document
-wiggum implement docs/my-feature.md --base main
+smithers implement docs/my-feature.md --base main
 
 # With custom model
-wiggum implement docs/my-feature.md --model claude-sonnet-4-20250514
+smithers implement docs/my-feature.md --model claude-sonnet-4-20250514
 ```
 
 ### Fix PR Review Comments
 
 ```bash
 # Fix review comments on specific PRs
-wiggum fix docs/my-feature.md 123 124 125
+smithers fix docs/my-feature.md 123 124 125
 
 # With max iterations limit
-wiggum fix docs/my-feature.md 123 --max-iterations 5
+smithers fix docs/my-feature.md 123 --max-iterations 5
 ```
 
 ### Options
@@ -67,17 +67,17 @@ wiggum fix docs/my-feature.md 123 --max-iterations 5
 --verbose, -v  Enable verbose output
 ```
 
-### Update Wiggum
+### Update Smithers
 
 ```bash
 # Update to the latest released version
-wiggum update
+smithers update
 
 # Alias
-wiggum update-self
+smithers update-self
 ```
 
-The update command uses `uv tool upgrade wiggum` under the hood. Ensure `uv` is installed and on your `PATH`.
+The update command uses `uv tool upgrade smithers` under the hood. Ensure `uv` is installed and on your `PATH`.
 
 ## How It Works
 
@@ -99,7 +99,7 @@ The update command uses `uv tool upgrade wiggum` under the hood. Ensure `uv` is 
 
 ## Architecture
 
-Wiggum uses a **prompt-first architecture** where Claude Code handles all the complex logic:
+Smithers uses a **prompt-first architecture** where Claude Code handles all the complex logic:
 
 - **Prompts do the heavy lifting**: Implementation, PR creation, review fixes, and CI debugging are all handled by detailed prompts
 - **Python handles orchestration**: Git worktrees, tmux sessions, and loop control
@@ -109,7 +109,7 @@ Wiggum uses a **prompt-first architecture** where Claude Code handles all the co
 ## Development
 
 ```bash
-cd wiggum
+cd smithers
 
 # Install dependencies
 uv sync --dev

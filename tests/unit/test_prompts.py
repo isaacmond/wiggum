@@ -2,9 +2,9 @@
 
 from pathlib import Path
 
-from wiggum.prompts.fix import render_fix_planning_prompt, render_fix_prompt
-from wiggum.prompts.implementation import render_implementation_prompt
-from wiggum.prompts.planning import render_planning_prompt
+from smithers.prompts.fix import render_fix_planning_prompt, render_fix_prompt
+from smithers.prompts.implementation import render_implementation_prompt
+from smithers.prompts.planning import render_planning_prompt
 
 
 class TestPlanningPrompt:

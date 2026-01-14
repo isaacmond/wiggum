@@ -9,14 +9,14 @@ from urllib.parse import urlparse
 
 import typer
 
-from wiggum.console import console, print_error, print_header, print_info, print_success
-from wiggum.exceptions import DependencyMissingError, WiggumError
-from wiggum.models.config import Config, set_config
-from wiggum.prompts.fix import render_fix_planning_prompt, render_fix_prompt
-from wiggum.services.claude import ClaudeService
-from wiggum.services.git import GitService
-from wiggum.services.github import GitHubService
-from wiggum.services.tmux import TmuxService
+from smithers.console import console, print_error, print_header, print_info, print_success
+from smithers.exceptions import DependencyMissingError, SmithersError
+from smithers.models.config import Config, set_config
+from smithers.prompts.fix import render_fix_planning_prompt, render_fix_prompt
+from smithers.services.claude import ClaudeService
+from smithers.services.git import GitService
+from smithers.services.github import GitHubService
+from smithers.services.tmux import TmuxService
 
 
 def parse_pr_identifier(identifier: str) -> int:
@@ -129,7 +129,7 @@ def fix(
         print_error(str(e))
         raise typer.Exit(1) from e
 
-    print_header("Wiggum Loop: Fixing PR Comments (Parallel)")
+    print_header("Smithers Loop: Fixing PR Comments (Parallel)")
     console.print(f"Design doc: [cyan]{design_doc}[/cyan]")
     console.print(f"PRs to process: [cyan]{', '.join(f'#{pr}' for pr in pr_numbers)}[/cyan]")
     console.print("Will keep looping until all comments are addressed")
@@ -146,7 +146,7 @@ def fix(
             pr_info = github_service.get_pr_info(pr_num)
             pr_branches[pr_num] = pr_info.branch
             console.print(f"  PR #{pr_num}: {pr_info.branch}")
-        except WiggumError as e:
+        except SmithersError as e:
             print_error(f"Failed to get info for PR #{pr_num}: {e}")
             raise typer.Exit(1) from e
 
@@ -163,9 +163,9 @@ def fix(
 
             print_header(f"ITERATION {iteration}")
 
-            # Create timestamped TODO file for this iteration in ~/.wiggum/plans
+            # Create timestamped TODO file for this iteration in ~/.smithers/plans
             timestamp = datetime.now(tz=UTC).strftime("%Y%m%d-%H%M%S")
-            todo_file = config.plans_dir / f"{design_doc_base}.wiggum-{timestamp}.md"
+            todo_file = config.plans_dir / f"{design_doc_base}.smithers-{timestamp}.md"
 
             result = _run_fix_iteration(
                 design_doc=design_doc,
@@ -196,9 +196,9 @@ def fix(
     finally:
         # Cleanup on exit
         git_service.cleanup_all_worktrees()
-        tmux_service.kill_all_wiggum_sessions()
+        tmux_service.kill_all_smithers_sessions()
 
-    print_header("Wiggum Loop Complete!")
+    print_header("Smithers Loop Complete!")
     console.print(f"Processed {len(pr_numbers)} PRs")
     console.print(f"Total iterations: {iteration}")
 
@@ -258,17 +258,17 @@ def _run_fix_iteration(
 
         try:
             worktree_path = git_service.create_worktree(branch, f"origin/{branch}")
-        except WiggumError:
+        except SmithersError:
             console.print(f"[yellow]Trying alternative worktree creation for {branch}[/yellow]")
             try:
                 worktree_path = git_service.create_worktree(branch, branch)
-            except WiggumError as e:
+            except SmithersError as e:
                 console.print(f"[red]Could not create worktree for PR #{pr_num}: {e}[/red]")
                 continue
 
         # Create prompt file
         timestamp = datetime.now(tz=UTC).strftime("%Y%m%d-%H%M%S")
-        prompt_file = config.temp_dir / f"wiggum-fix-pr-{pr_num}-{timestamp}.prompt"
+        prompt_file = config.temp_dir / f"smithers-fix-pr-{pr_num}-{timestamp}.prompt"
         output_file = prompt_file.with_suffix(".prompt.output")
         exit_file = prompt_file.with_suffix(".prompt.exit")
 
@@ -340,7 +340,7 @@ def _run_fix_iteration(
                 console.print(output)
 
             # Extract results from JSON (with fallback to legacy regex)
-            from wiggum.services.claude import ClaudeResult
+            from smithers.services.claude import ClaudeResult
 
             fix_result = ClaudeResult(output=output, exit_code=0, success=True)
             json_output = fix_result.extract_json()
