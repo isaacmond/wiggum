@@ -1,6 +1,6 @@
 [project]
 name = "wiggum"
-version = "0.2.1"
+version = "0.2.2"
 description = "Automate PR creation and review fixing with Claude AI"
 readme = "README.md"
 requires-python = ">=3.14"

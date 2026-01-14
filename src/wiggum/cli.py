@@ -7,6 +7,7 @@ from wiggum import __version__
 from wiggum.commands.fix import fix
 from wiggum.commands.implement import implement
 from wiggum.commands.update import update
+from wiggum.services.version import check_for_updates
 
 # Create the Typer app
 app = typer.Typer(
@@ -44,7 +45,11 @@ def main(
     if version:
         console = Console()
         console.print(f"wiggum version {__version__}")
+        check_for_updates()
         raise typer.Exit()
+
+    # Check for updates on every invocation
+    check_for_updates()
 
     # Show help if no command provided
     if ctx.invoked_subcommand is None:
