@@ -17,14 +17,17 @@ Named after Chief Wiggum's dogged persistence, this tool implements design docum
 
 - Python 3.14+
 - [uv](https://docs.astral.sh/uv/) - Package manager
-- [git-worktree-runner (gtr)](https://github.com/coderabbitai/gtr) - Worktree management
+- [git-worktree-runner (git gtr)](https://github.com/coderabbitai/git-worktree-runner) - Worktree management
 - [tmux](https://github.com/tmux/tmux) - Terminal multiplexer
 - [Claude Code CLI](https://claude.ai/code) - AI code generation
 - [GitHub CLI (gh)](https://cli.github.com/) - GitHub operations
 
 ```bash
-# Install prerequisites
-brew install coderabbitai/tap/gtr
+# Install git-worktree-runner (gtr)
+git clone https://github.com/coderabbitai/git-worktree-runner.git
+(cd git-worktree-runner && ./install.sh)
+
+# Install other prerequisites
 brew install tmux
 brew install gh
 npm install -g @anthropic-ai/claude-code

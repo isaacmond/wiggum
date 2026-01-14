@@ -85,7 +85,8 @@ def implement(
     except DependencyMissingError as e:
         print_error(str(e))
         console.print("\nInstall with:")
-        console.print("  brew install coderabbitai/tap/gtr  # git-worktree-runner")
+        console.print("  git clone https://github.com/coderabbitai/git-worktree-runner.git")
+        console.print("  (cd git-worktree-runner && ./install.sh)  # installs git gtr")
         console.print("  brew install tmux")
         console.print("  npm install -g @anthropic-ai/claude-code")
         raise typer.Exit(1) from e
@@ -140,7 +141,7 @@ def implement(
 
         fix_command(
             design_doc=design_doc,
-            pr_numbers=collected_prs,
+            pr_identifiers=[str(pr) for pr in collected_prs],
             model=model,
             dry_run=dry_run,
             verbose=verbose,
