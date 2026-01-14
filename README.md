@@ -32,8 +32,8 @@ brew install tmux
 brew install gh
 npm install -g @anthropic-ai/claude-code
 
-# Install wiggum
-uv tool install git+https://github.com/Metaview/wiggum.git
+# Install wiggum (from local clone)
+uv tool install /path/to/wiggum
 ```
 
 ## Usage
@@ -88,8 +88,6 @@ wiggum fix docs/my-feature.md 123 --max-iterations 5
 ## Development
 
 ```bash
-# Clone the repository
-git clone https://github.com/Metaview/wiggum.git
 cd wiggum
 
 # Install dependencies
