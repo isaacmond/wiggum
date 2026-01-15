@@ -16,7 +16,7 @@ CONFIG_FILE = Path.home() / ".smithers" / "config.json"
 class VibekanbanConfig:
     """Vibekanban-specific configuration."""
 
-    enabled: bool = False
+    enabled: bool = True
     project_id: str | None = None
 
 
@@ -64,9 +64,49 @@ def _load_from_file() -> VibekanbanConfig:
 
         vk_config = data.get("vibekanban", {})
         return VibekanbanConfig(
-            enabled=vk_config.get("enabled", False),
+            enabled=vk_config.get("enabled", True),
             project_id=vk_config.get("project_id"),
         )
     except (json.JSONDecodeError, OSError) as e:
         logger.warning(f"Failed to load config file: {e}")
         return VibekanbanConfig()
+
+
+def save_vibekanban_project_id(project_id: str) -> bool:
+    """Save vibekanban project ID to config file.
+
+    Args:
+        project_id: The project ID to save.
+
+    Returns:
+        True if saved successfully, False otherwise.
+    """
+    CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
+
+    # Load existing config or start fresh
+    data: dict[str, object] = {}
+    if CONFIG_FILE.exists():
+        try:
+            with CONFIG_FILE.open() as f:
+                data = json.load(f)
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    # Update vibekanban config
+    existing_vk = data.get("vibekanban")
+    vk_config: dict[str, object] = (
+        {k: v for k, v in existing_vk.items() if isinstance(k, str)}
+        if isinstance(existing_vk, dict)
+        else {}
+    )
+    vk_config["project_id"] = project_id
+    data["vibekanban"] = vk_config
+
+    try:
+        with CONFIG_FILE.open("w") as f:
+            json.dump(data, f, indent=2)
+        logger.info(f"Saved vibekanban project_id to {CONFIG_FILE}")
+        return True
+    except OSError as e:
+        logger.warning(f"Failed to save config file: {e}")
+        return False

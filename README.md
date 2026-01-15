@@ -233,31 +233,48 @@ The `--resume` flag skips stages already marked as `completed` in the TODO file 
 
 ## Vibekanban Integration
 
-Smithers can optionally integrate with [Vibekanban](https://vibekanban.com/) to track Claude sessions as tasks in a kanban UI.
+Smithers integrates with [Vibekanban](https://vibekanban.com/) to track Claude sessions as tasks in a kanban UI. **This is enabled by default** and requires no configuration.
 
-### Configuration
+### Zero Configuration
 
-Create a config file at `~/.smithers/config.json`:
+On first run, smithers will:
+
+1. Auto-discover your vibekanban project
+2. Save the project ID to `~/.smithers/config.json` for future runs
+
+To list available projects:
+
+```bash
+smithers projects
+```
+
+### Manual Configuration (Optional)
+
+If you have multiple projects and want to specify which one to use:
 
 ```json
 {
   "vibekanban": {
-    "enabled": true,
     "project_id": "your-project-id"
   }
 }
 ```
 
-Or use environment variables:
+Or use an environment variable:
 
 ```bash
-export SMITHERS_VIBEKANBAN_ENABLED=1
 export SMITHERS_VIBEKANBAN_PROJECT_ID=your-project-id
+```
+
+To disable vibekanban integration:
+
+```bash
+export SMITHERS_VIBEKANBAN_ENABLED=false
 ```
 
 ### How It Works
 
-When configured, smithers will:
+Smithers will automatically:
 
 1. **Create a task** in vibekanban when a command starts (implement, fix, plan, standardize)
 2. **Update task status** to "in_progress" while running
@@ -269,7 +286,6 @@ This allows you to monitor all your Claude sessions in the vibekanban UI.
 ### Requirements
 
 - Vibekanban must be installed: `npx vibe-kanban`
-- You need a project ID from vibekanban (visible in the UI or via `list_projects` MCP tool)
 
 ## Architecture
 
