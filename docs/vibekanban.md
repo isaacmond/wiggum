@@ -55,6 +55,16 @@ Each task is:
 
 This allows you to monitor individual Claude sessions in real-time through the vibekanban UI, with direct links to the associated PRs.
 
+## Cleanup
+
+To delete all smithers-created tasks from vibekanban:
+
+```bash
+smithers cleanup
+```
+
+This finds and removes all tasks with `[impl]` or `[fix]` prefixes across all statuses.
+
 ## Requirements
 
 - Vibekanban must be installed: `npx vibe-kanban`

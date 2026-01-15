@@ -73,8 +73,14 @@ IMPORTANT: For the "Depends on" field, use the actual branch name (e.g., "{branc
 - Specify dependencies clearly (which stages must come before)
 - Be specific about which files to create/modify
 - Include clear acceptance criteria for each stage
-- Consider: database migrations first, then models, then services, then handlers, then tests
+- Consider ordering: database migrations first, then models, then services, then handlers
 - Stages will be implemented one at a time in order, with each PR stacking on the previous
+
+**Testing (CRITICAL):**
+- Tests MUST be included in the same stage as the code they test — NEVER create separate testing stages/PRs
+- Each stage should include relevant unit tests, integration tests, or both alongside the implementation
+- A stage is not complete without tests for the functionality it introduces
+- Do NOT create "Stage N: Add Tests" — instead, include tests in each implementation stage
 
 ### Output (CRITICAL - Valid JSON Required)
 After creating the TODO file, output the following JSON block at the END of your response.

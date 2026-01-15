@@ -224,6 +224,52 @@ class VibekanbanService:
             logger.warning("Failed to list vibekanban tasks", exc_info=True)
             return []
 
+    def delete_task(self, task_id: str) -> bool:
+        """Delete a task from vibekanban.
+
+        Args:
+            task_id: The task ID to delete
+
+        Returns:
+            True if successful, False otherwise.
+        """
+        if not self.is_configured() or not task_id:
+            return False
+
+        try:
+            asyncio.run(self._call_tool("delete_task", {"task_id": task_id}))
+            logger.info(f"Deleted vibekanban task: {task_id}")
+            return True
+        except Exception:
+            logger.warning(f"Failed to delete vibekanban task {task_id}", exc_info=True)
+            return False
+
+    def list_all_smithers_tasks(self) -> list[dict[str, str]]:
+        """List all smithers-created tasks across all statuses.
+
+        Finds tasks with titles starting with [impl] or [fix] in any status.
+
+        Returns:
+            List of task dicts, or empty list on failure.
+        """
+        if not self.is_configured():
+            return []
+
+        smithers_tasks: list[dict[str, str]] = []
+        statuses = ["todo", "in_progress", "completed", "failed"]
+
+        for status in statuses:
+            try:
+                tasks = self.list_tasks(status=status)
+                for task in tasks:
+                    title = task.get("title", "")
+                    if title.startswith(("[impl]", "[fix]")):
+                        smithers_tasks.append(task)
+            except Exception:
+                logger.warning(f"Failed to list tasks with status {status}", exc_info=True)
+
+        return smithers_tasks
+
     def cleanup_orphaned_tasks(self) -> int:
         """Mark orphaned in_progress [impl] and [fix] tasks as failed.
 

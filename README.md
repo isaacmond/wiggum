@@ -106,6 +106,17 @@ Analyzes all PR diffs and updates each PR with:
 - Overview and summary of changes
 - Table of all PRs in the series
 
+### cleanup
+
+Delete all smithers-created vibekanban tasks.
+
+```bash
+smithers cleanup           # Delete all [impl] and [fix] tasks
+smithers cleanup --force   # Skip confirmation prompt
+```
+
+Finds and removes all tasks with `[impl]` or `[fix]` prefixes across all statuses (todo, in_progress, completed, failed).
+
 ### Session Management
 
 Smithers runs long operations in background tmux sessions while streaming output to your terminal.
