@@ -122,6 +122,7 @@ def plan(
         model,
         "--permission-mode",
         "plan",
+        "--dangerously-skip-permissions",
         "--append-system-prompt",
         append_prompt,
     ]
