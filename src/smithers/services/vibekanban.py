@@ -2,6 +2,10 @@
 
 import asyncio
 import json
+import subprocess
+import tempfile
+import time
+import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -13,6 +17,9 @@ from smithers.logging_config import get_logger
 from smithers.services.config_loader import load_vibekanban_config
 
 logger = get_logger("smithers.services.vibekanban")
+
+# Path where vibe-kanban stores its port file
+VIBE_KANBAN_PORT_FILE = Path(tempfile.gettempdir()) / "vibe-kanban" / "vibe-kanban.port"
 
 
 @dataclass
@@ -198,16 +205,75 @@ class VibekanbanService:
             return []
 
 
+def _is_vibekanban_running() -> bool:
+    """Check if vibe-kanban backend is running.
+
+    Returns:
+        True if vibe-kanban is running, False otherwise.
+    """
+    if not VIBE_KANBAN_PORT_FILE.exists():
+        return False
+
+    # Port file exists, try to connect to verify it's actually running
+    try:
+        port = VIBE_KANBAN_PORT_FILE.read_text().strip()
+        url = f"http://127.0.0.1:{port}/api/projects"
+        req = urllib.request.Request(url, method="GET")
+        with urllib.request.urlopen(req, timeout=2):
+            return True
+    except Exception:
+        return False
+
+
+def _launch_vibekanban() -> bool:
+    """Launch vibe-kanban in the background if not running.
+
+    Returns:
+        True if vibe-kanban is now running, False otherwise.
+    """
+    if _is_vibekanban_running():
+        logger.debug("vibe-kanban already running")
+        return True
+
+    logger.info("Launching vibe-kanban...")
+    try:
+        # Launch vibe-kanban in background, suppressing output
+        subprocess.Popen(
+            ["npx", "--quiet", "vibe-kanban@latest"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+
+        # Wait for it to start (up to 10 seconds)
+        for _ in range(20):
+            time.sleep(0.5)
+            if _is_vibekanban_running():
+                logger.info("vibe-kanban started successfully")
+                return True
+
+        logger.warning("vibe-kanban failed to start within timeout")
+        return False
+    except Exception:
+        logger.warning("Failed to launch vibe-kanban", exc_info=True)
+        return False
+
+
 def create_vibekanban_service() -> VibekanbanService:
     """Create a VibekanbanService from configuration.
 
     Loads configuration from ~/.smithers/config.json and environment variables.
     Auto-discovers project by matching current directory name to project names.
+    Launches vibe-kanban if not already running.
 
     Returns:
         Configured VibekanbanService instance.
     """
     config = load_vibekanban_config()
+
+    if config.enabled:
+        # Ensure vibe-kanban is running
+        _launch_vibekanban()
 
     # Always auto-discover project based on current directory
     # (env var or explicit config still takes precedence)

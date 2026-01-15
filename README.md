@@ -308,6 +308,11 @@ cd smithers
 # Install dependencies
 uv sync --dev
 
+# Run all checks with auto-fix
+./fix.sh
+
+# Or run individually:
+
 # Run tests
 uv run pytest
 

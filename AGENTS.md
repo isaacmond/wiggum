@@ -7,13 +7,13 @@
 
 ## Required Checks
 
-All checks must pass before pushing to `main`:
+All checks must pass before pushing to `main`. Run all checks with auto-fix:
 
 ```bash
-uv run ty check src/
-uv run ruff check src/
-uv run pytest tests/
+./fix.sh
 ```
+
+This formats code, fixes lint issues, runs type checking, and runs tests.
 
 ## Shipping Code
 
