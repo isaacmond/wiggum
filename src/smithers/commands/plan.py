@@ -106,7 +106,25 @@ def plan(
     print_info("When finished, exit Claude (Ctrl+C or /exit).\n")
 
     # Build the Claude command for interactive plan mode
-    cmd = ["claude", "--model", model, "--permission-mode", "plan"]
+    # Use --append-system-prompt to tell Claude to output the plan path and copy to ~/Downloads
+    # instead of starting implementation when the plan is accepted
+    append_prompt = (
+        "IMPORTANT: When the user accepts a plan in plan mode, do NOT start implementing. "
+        "Instead:\n"
+        "1. Print the full path of the plan file (e.g., .claude/plan.md)\n"
+        f"2. Copy the plan file to ~/Downloads/{output_path.name}\n"
+        "3. Confirm the copy was successful and exit\n"
+        "This allows the user to review and use the plan with smithers implement later."
+    )
+    cmd = [
+        "claude",
+        "--model",
+        model,
+        "--permission-mode",
+        "plan",
+        "--append-system-prompt",
+        append_prompt,
+    ]
     logger.info(f"Launching Claude: {' '.join(cmd)}")
 
     try:

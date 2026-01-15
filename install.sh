@@ -61,6 +61,13 @@ check_command gh || MISSING_OPTIONAL+=("gh (GitHub CLI)")
 check_command claude || MISSING_OPTIONAL+=("claude (Claude Code CLI)")
 check_command git || { echo -e "${RED}git is required${NC}"; exit 1; }
 
+# Check for caffeinate (macOS built-in for preventing sleep)
+if [[ "$(uname)" == "Darwin" ]]; then
+    if check_command caffeinate; then
+        echo -e "  ${GREEN}✓${NC} caffeinate available (prevents system sleep during long operations)"
+    fi
+fi
+
 if [ ${#MISSING_OPTIONAL[@]} -gt 0 ]; then
     echo -e "\n${YELLOW}Optional dependencies not found:${NC}"
     for dep in "${MISSING_OPTIONAL[@]}"; do

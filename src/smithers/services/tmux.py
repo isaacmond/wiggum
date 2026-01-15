@@ -87,6 +87,52 @@ class TmuxService:
 
         return missing
 
+    def _has_caffeinate(self) -> bool:
+        """Check if caffeinate is available (macOS built-in command).
+
+        caffeinate prevents the system from sleeping while a process runs.
+        It's a standard macOS utility and not available on Linux.
+
+        Returns:
+            True if caffeinate is available, False otherwise.
+        """
+        if platform.system() != "Darwin":
+            return False
+        try:
+            result = subprocess.run(
+                ["which", "caffeinate"],
+                capture_output=True,
+                check=True,
+                text=True,
+            )
+            logger.debug(f"caffeinate found at: {result.stdout.strip()}")
+            return True
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            logger.debug("caffeinate not found")
+            return False
+
+    def _wrap_with_caffeinate(self, command: str) -> str:
+        """Wrap a command with caffeinate to prevent system sleep.
+
+        Uses caffeinate -dims to prevent:
+        - Display sleep (-d)
+        - System idle sleep (-i)
+        - Disk idle sleep (-m)
+        - System sleep when on AC power (-s)
+
+        Args:
+            command: The command to wrap
+
+        Returns:
+            The command wrapped with caffeinate if available, otherwise unchanged.
+        """
+        if not self._has_caffeinate():
+            return command
+        # Use caffeinate -dims to prevent all types of sleep
+        # -w is not used as we want caffeinate to run for the full session duration
+        logger.debug("Wrapping command with caffeinate -dims")
+        return f"caffeinate -dims /bin/sh -c {shlex.quote(command)}"
+
     def ensure_dependencies(self) -> None:
         """Ensure all required dependencies are installed."""
         missing = self.check_dependencies()
@@ -241,6 +287,8 @@ class TmuxService:
     def _create_detached_session(self, session: str, command: str) -> None:
         """Create a detached tmux session running the given command.
 
+        The command is wrapped with caffeinate on macOS to prevent system sleep.
+
         Args:
             session: Session name (already sanitized)
             command: Command to run in the session
@@ -253,13 +301,16 @@ class TmuxService:
             logger.warning(f"Session '{session}' exists in _create_detached_session, killing")
             self.kill_session(session)
 
+        # Wrap command with caffeinate to prevent system sleep on macOS
+        wrapped_command = self._wrap_with_caffeinate(command)
+
         tmux_cmd = [
             "tmux",
             "new-session",
             "-d",  # Detached
             "-s",
             session,
-            command,
+            wrapped_command,
         ]
 
         logger.debug(f"Creating detached tmux session: {' '.join(tmux_cmd)}")
@@ -486,6 +537,8 @@ class TmuxService:
     ) -> str:
         """Create a new tmux session running the given command.
 
+        The command is wrapped with caffeinate on macOS to prevent system sleep.
+
         Args:
             name: Session name (will be sanitized)
             workdir: Working directory for the session
@@ -508,6 +561,9 @@ class TmuxService:
 
         print_info(f"Starting tmux session '{session}' at {workdir}")
 
+        # Wrap command with caffeinate to prevent system sleep on macOS
+        wrapped_command = self._wrap_with_caffeinate(command)
+
         tmux_cmd = [
             "tmux",
             "new-session",
@@ -516,7 +572,7 @@ class TmuxService:
             session,
             "-c",
             str(workdir),
-            command,
+            wrapped_command,
         ]
 
         try:

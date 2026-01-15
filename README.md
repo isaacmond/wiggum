@@ -37,6 +37,7 @@ uv tool install git+https://github.com/isaacmond/smithers.git
 - [tmux](https://github.com/tmux/tmux) - `brew install tmux`
 - [GitHub CLI](https://cli.github.com/) - `brew install gh`
 - [Claude Code CLI](https://claude.ai/code) - `npm install -g @anthropic-ai/claude-code`
+- `caffeinate` (macOS only, built-in) - Prevents system sleep during long operations
 
 </details>
 
@@ -95,7 +96,12 @@ smithers plan
 smithers plan --output ~/plans/my-feature.md
 ```
 
-Creates a plan file that can later be used with `smithers implement --todo-file`.
+When you accept a plan, Claude will:
+1. Print the full path of the plan file
+2. Copy the plan to `~/Downloads/<plan-name>.md`
+3. Exit without starting implementation
+
+This allows you to review the plan and use it later with `smithers implement --todo-file`.
 
 ### standardize
 
@@ -134,6 +140,7 @@ Smithers runs long operations in background tmux sessions while streaming output
 - **Press Ctrl+C to detach** without stopping the session
 - **Reconnect anytime** with `smithers rejoin`
 - **Exit status is recorded** in `~/.smithers/sessions/<session>/exit_code` for reliable completion reporting
+- **Caffeinate integration** (macOS): Sessions are wrapped with `caffeinate` to prevent system sleep, ensuring operations complete even during extended runs
 
 ```bash
 smithers sessions              # List running sessions
