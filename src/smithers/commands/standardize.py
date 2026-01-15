@@ -16,7 +16,7 @@ from smithers.prompts.standardize import (
 )
 from smithers.services.claude import ClaudeService
 from smithers.services.github import GitHubService
-from smithers.services.vibekanban import create_vibekanban_service
+from smithers.services.vibekanban import create_vibekanban_service, get_vibekanban_url
 
 logger = get_logger("smithers.commands.standardize")
 
@@ -160,6 +160,9 @@ def standardize(
     print_header("Smithers: Standardizing PR Series")
     console.print(f"PRs to process: [cyan]{', '.join(f'#{pr}' for pr in pr_numbers)}[/cyan]")
     console.print(f"Model: [cyan]{model}[/cyan]")
+    vibekanban_url = get_vibekanban_url()
+    if vibekanban_url:
+        console.print(f"Vibekanban: [cyan]{vibekanban_url}[/cyan]")
 
     if dry_run:
         console.print("\n[yellow]DRY RUN MODE - Will show analysis but not update PRs[/yellow]")

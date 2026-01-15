@@ -11,14 +11,13 @@ import typer
 from smithers.commands.quote import print_random_quote
 from smithers.console import console, print_error, print_header, print_info, print_success
 from smithers.exceptions import DependencyMissingError, SmithersError
-from smithers.logging_config import get_logger
+from smithers.logging_config import get_logger, get_session_log_file
 from smithers.models.config import Config, set_config
 from smithers.models.todo import TodoFile
 from smithers.prompts.implementation import render_implementation_prompt
 from smithers.prompts.planning import render_planning_prompt
 from smithers.services.claude import ClaudeService
 from smithers.services.git import GitService
-from smithers.services.github import GitHubService
 from smithers.services.tmux import TmuxService
 from smithers.services.vibekanban import (
     VibekanbanService,
@@ -155,7 +154,6 @@ def implement(
 
     # Set up configuration
     config = Config(
-        model=model,
         base_branch=base_branch,
         branch_prefix=branch_prefix,
         dry_run=dry_run,
@@ -167,7 +165,6 @@ def implement(
     git_service = GitService()
     tmux_service = TmuxService()
     claude_service = ClaudeService(model=model)
-    github_service = GitHubService()
     vibekanban_service = create_vibekanban_service()
 
     # Check dependencies
@@ -213,6 +210,10 @@ def implement(
     if vibekanban_url:
         console.print(f"Vibekanban: [cyan]{vibekanban_url}[/cyan]")
 
+    # Print log and output locations
+    console.print(f"Log file: [cyan]{get_session_log_file()}[/cyan]")
+    console.print(f"Claude output dir: [cyan]{config.temp_dir}[/cyan]")
+
     if dry_run:
         console.print("\n[yellow]DRY RUN MODE - No changes will be made[/yellow]")
         return
@@ -236,7 +237,6 @@ def implement(
                 git_service=git_service,
                 tmux_service=tmux_service,
                 claude_service=claude_service,
-                github_service=github_service,
                 vibekanban_service=vibekanban_service,
                 config=config,
                 resume=resume,
@@ -263,7 +263,6 @@ def implement(
                 git_service=git_service,
                 tmux_service=tmux_service,
                 claude_service=claude_service,
-                github_service=github_service,
                 vibekanban_service=vibekanban_service,
                 config=config,
                 resume=resume,
@@ -309,7 +308,6 @@ def _run_implementation_phase(
     git_service: GitService,
     tmux_service: TmuxService,
     claude_service: ClaudeService,
-    github_service: GitHubService,
     vibekanban_service: VibekanbanService,
     config: Config,
     resume: bool = False,
@@ -325,7 +323,6 @@ def _run_implementation_phase(
         git_service: Git service instance.
         tmux_service: Tmux service instance.
         claude_service: Claude service instance.
-        github_service: GitHub service instance for PR info.
         vibekanban_service: Vibekanban service for task tracking.
         config: Configuration instance.
         resume: If True, skip stages that are already completed.
@@ -470,20 +467,9 @@ def _run_implementation_phase(
                 collected_prs.append(pr_num)
                 logger.info(f"Stage {stage.number} complete: PR #{pr_num}")
                 print_success(f"Stage {stage.number} complete. PR #{pr_num}")
-                # Update vibekanban task with PR URL and mark completed
+                # Update vibekanban task status to completed
                 if stage_vk_task_id:
-                    pr_url: str | None = None
-                    try:
-                        pr_info = github_service.get_pr_info(pr_num)
-                        pr_url = pr_info.url
-                        logger.info(f"Got PR URL for vibekanban: {pr_url}")
-                    except Exception:
-                        logger.warning(f"Failed to get PR URL for #{pr_num}", exc_info=True)
-                    vibekanban_service.update_task(
-                        stage_vk_task_id,
-                        status="completed",
-                        pr_url=pr_url,
-                    )
+                    vibekanban_service.update_task_status(stage_vk_task_id, "completed")
             else:
                 msg = f"Could not extract PR number for Stage {stage.number}"
                 logger.warning(msg)

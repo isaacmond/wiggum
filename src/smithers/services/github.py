@@ -97,19 +97,19 @@ class GitHubService:
             logger.exception(f"Failed to parse PR #{pr_number} info")
             raise GitHubError(f"Failed to parse PR #{pr_number} info: {e}") from e
 
-    def close_pr(self, pr_number: int, comment: str | None = None) -> None:
+    def close_pr(self, pr_number: int, comment: str) -> None:
         """Close a pull request.
 
         Args:
             pr_number: The PR number to close
-            comment: Optional comment to add before closing
+            comment: Comment to add before closing
 
         Raises:
             GitHubError: If the operation fails
         """
         logger.info(f"Closing PR #{pr_number}")
 
-        # Add comment if provided
+        # Add comment before closing
         if comment:
             comment_cmd = ["gh", "pr", "comment", str(pr_number), "--body", comment]
             try:

@@ -12,14 +12,18 @@ import typer
 from smithers.commands.quote import print_random_quote
 from smithers.console import console, print_error, print_header, print_info, print_success
 from smithers.exceptions import DependencyMissingError, SmithersError
-from smithers.logging_config import get_logger
+from smithers.logging_config import get_logger, get_session_log_file
 from smithers.models.config import Config, set_config
 from smithers.prompts.fix import render_fix_planning_prompt, render_fix_prompt
 from smithers.services.claude import ClaudeService
 from smithers.services.git import GitService
 from smithers.services.github import GitHubService
 from smithers.services.tmux import TmuxService
-from smithers.services.vibekanban import VibekanbanService, create_vibekanban_service
+from smithers.services.vibekanban import (
+    VibekanbanService,
+    create_vibekanban_service,
+    get_vibekanban_url,
+)
 
 logger = get_logger("smithers.commands.fix")
 
@@ -129,7 +133,6 @@ def fix(
     # Set up configuration
     config = Config(
         branch_prefix="",  # Not used by fix command (works on existing PRs)
-        model=model,
         dry_run=dry_run,
         verbose=verbose,
     )
@@ -162,6 +165,14 @@ def fix(
     print_header("Smithers Loop: Fixing PR Comments (Parallel)")
     console.print(f"Design doc: [cyan]{design_doc}[/cyan]")
     console.print(f"PRs to process: [cyan]{', '.join(f'#{pr}' for pr in pr_numbers)}[/cyan]")
+    vibekanban_url = get_vibekanban_url()
+    if vibekanban_url:
+        console.print(f"Vibekanban: [cyan]{vibekanban_url}[/cyan]")
+
+    # Print log and output locations
+    console.print(f"Log file: [cyan]{get_session_log_file()}[/cyan]")
+    console.print(f"Claude output dir: [cyan]{config.temp_dir}[/cyan]")
+
     console.print("Will keep looping until all comments are addressed")
 
     if dry_run:
@@ -349,7 +360,7 @@ def _run_fix_iteration(
         )
         prompt_file.write_text(prompt)
 
-        # Create vibekanban task for this PR fix session with PR link
+        # Create vibekanban task for this PR fix session with PR link in description
         pr_url = pr_urls.get(pr_num, "")
         task_description = (
             f"Fixing review comments on {branch}\n\nPR: {pr_url}"
@@ -361,9 +372,6 @@ def _run_fix_iteration(
             description=task_description,
         )
         if pr_vk_task_id:
-            vibekanban_service.update_task(
-                pr_vk_task_id, status="in_progress", pr_url=pr_url if pr_url else None
-            )
             logger.info(f"Created vibekanban task for PR #{pr_num}: {pr_vk_task_id}")
 
         group_data.append(

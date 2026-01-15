@@ -13,7 +13,6 @@ class TestConfig:
         config = Config(branch_prefix="user/")
 
         assert config.branch_prefix == "user/"
-        assert config.model == "claude-opus-4-5-20251101"
         assert config.base_branch == "main"
         assert config.poll_interval == 5.0
         assert config.dry_run is False
@@ -23,7 +22,6 @@ class TestConfig:
         """Test custom configuration values."""
         config = Config(
             branch_prefix="feature/",
-            model="claude-sonnet",
             base_branch="develop",
             poll_interval=10.0,
             dry_run=True,
@@ -31,7 +29,6 @@ class TestConfig:
         )
 
         assert config.branch_prefix == "feature/"
-        assert config.model == "claude-sonnet"
         assert config.base_branch == "develop"
         assert config.poll_interval == 10.0
         assert config.dry_run is True
@@ -39,10 +36,10 @@ class TestConfig:
 
     def test_set_config(self) -> None:
         """Test setting global config."""
-        config = Config(branch_prefix="test/", model="test-model")
+        config = Config(branch_prefix="test/")
         set_config(config)
         # Just verify it doesn't raise an error
-        assert config.model == "test-model"
+        assert config.branch_prefix == "test/"
 
 
 class TestStage:

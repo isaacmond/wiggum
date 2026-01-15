@@ -11,10 +11,6 @@ class Config:
     # Required fields (no defaults) - must come first
     branch_prefix: str  # e.g., "username/" for branches like "username/stage-1-models"
 
-    # Claude settings
-    model: str = "claude-opus-4-5-20251101"
-    dangerously_skip_permissions: bool = True
-
     # Git settings
     base_branch: str = "main"
 

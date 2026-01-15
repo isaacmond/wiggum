@@ -14,7 +14,7 @@ from smithers.exceptions import DependencyMissingError, SmithersError
 from smithers.logging_config import get_logger
 from smithers.models.config import Config, set_config
 from smithers.services.claude import ClaudeService
-from smithers.services.vibekanban import create_vibekanban_service
+from smithers.services.vibekanban import create_vibekanban_service, get_vibekanban_url
 
 logger = get_logger("smithers.commands.plan")
 
@@ -55,7 +55,6 @@ def plan(
     # Set up configuration (branch_prefix not used in interactive planning mode)
     config = Config(
         branch_prefix="",
-        model=model,
         verbose=verbose,
     )
     set_config(config)
@@ -78,6 +77,9 @@ def plan(
 
     print_header("Smithers: Interactive Planning Mode")
     console.print(f"Model: [cyan]{model}[/cyan]")
+    vibekanban_url = get_vibekanban_url()
+    if vibekanban_url:
+        console.print(f"Vibekanban: [cyan]{vibekanban_url}[/cyan]")
 
     # Determine output path
     timestamp = datetime.now(tz=UTC).strftime("%Y%m%d-%H%M%S")

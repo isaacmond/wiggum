@@ -23,16 +23,6 @@ VIBE_KANBAN_PORT_FILE = Path(tempfile.gettempdir()) / "vibe-kanban" / "vibe-kanb
 
 
 @dataclass
-class TaskInfo:
-    """Information about a vibekanban task."""
-
-    task_id: str
-    title: str
-    status: str
-    description: str = ""
-
-
-@dataclass
 class VibekanbanService:
     """Service for interacting with Vibekanban's MCP server.
 
@@ -103,6 +93,8 @@ class VibekanbanService:
             return None
 
         try:
+            # Note: create_task MCP tool only accepts project_id, title, description
+            # Tasks are created in "todo" status by default
             result = asyncio.run(
                 self._call_tool(
                     "create_task",
@@ -110,14 +102,17 @@ class VibekanbanService:
                         "project_id": self.project_id,
                         "title": title,
                         "description": description,
-                        "status": status,
                     },
                 )
             )
             task_id = result.get("task_id") or result.get("id")
             if task_id:
-                logger.info(f"Created vibekanban task: {task_id} (status={status})")
-                return str(task_id)
+                task_id_str = str(task_id)
+                logger.info(f"Created vibekanban task: {task_id_str}")
+                # Set initial status via update_task (create_task doesn't support status)
+                if status != "todo":
+                    self.update_task_status(task_id_str, status)
+                return task_id_str
             logger.warning(f"No task_id in vibekanban response: {result}")
             return None
         except Exception:
@@ -128,16 +123,16 @@ class VibekanbanService:
         self,
         task_id: str,
         status: str | None = None,
+        title: str | None = None,
         description: str | None = None,
-        pr_url: str | None = None,
     ) -> bool:
         """Update a task's fields.
 
         Args:
             task_id: The task ID
             status: New status (e.g., "in_progress", "completed", "failed")
-            description: New description text
-            pr_url: URL to associated pull request
+            title: New task title
+            description: New task description
 
         Returns:
             True if successful, False otherwise.
@@ -149,20 +144,20 @@ class VibekanbanService:
             arguments: dict[str, Any] = {"task_id": task_id}
             if status is not None:
                 arguments["status"] = status
+            if title is not None:
+                arguments["title"] = title
             if description is not None:
                 arguments["description"] = description
-            if pr_url is not None:
-                arguments["pr_url"] = pr_url
 
             asyncio.run(self._call_tool("update_task", arguments))
 
             updates = []
             if status:
                 updates.append(f"status={status}")
+            if title:
+                updates.append(f"title={title}")
             if description:
-                updates.append("description updated")
-            if pr_url:
-                updates.append(f"pr_url={pr_url}")
+                updates.append("description=...")
             logger.info(f"Updated vibekanban task {task_id}: {', '.join(updates)}")
             return True
         except Exception:
@@ -185,35 +180,6 @@ class VibekanbanService:
         """
         return self.update_task(task_id, status=status)
 
-    def get_task(self, task_id: str) -> TaskInfo | None:
-        """Get task information.
-
-        Args:
-            task_id: The task ID
-
-        Returns:
-            TaskInfo if successful, None otherwise.
-        """
-        if not self.is_configured() or not task_id:
-            return None
-
-        try:
-            result = asyncio.run(
-                self._call_tool(
-                    "get_task",
-                    {"task_id": task_id},
-                )
-            )
-            return TaskInfo(
-                task_id=result.get("id", task_id),
-                title=result.get("title", ""),
-                status=result.get("status", ""),
-                description=result.get("description", ""),
-            )
-        except Exception:
-            logger.warning(f"Failed to get vibekanban task {task_id}", exc_info=True)
-            return None
-
     def list_projects(self) -> list[dict[str, str]]:
         """List all vibekanban projects.
 
@@ -235,11 +201,11 @@ class VibekanbanService:
             logger.warning("Failed to list vibekanban projects", exc_info=True)
             return []
 
-    def list_tasks(self, status: str | None = None) -> list[dict[str, str]]:
+    def list_tasks(self, status: str) -> list[dict[str, str]]:
         """List tasks in the project.
 
         Args:
-            status: Optional status filter (e.g., "in_progress", "todo")
+            status: Status filter (e.g., "in_progress", "todo")
 
         Returns:
             List of task dicts, or empty list on failure.
@@ -248,9 +214,7 @@ class VibekanbanService:
             return []
 
         try:
-            args: dict[str, str] = {"project_id": str(self.project_id)}
-            if status:
-                args["status"] = status
+            args: dict[str, str] = {"project_id": str(self.project_id), "status": status}
             result = asyncio.run(self._call_tool("list_tasks", args))
             tasks = result.get("tasks", [])
             if isinstance(tasks, list):

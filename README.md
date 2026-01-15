@@ -126,11 +126,21 @@ When you kill a session, smithers cleans up worktrees and (for implement session
 
 ### Monitoring Progress
 
+When starting a new session, smithers displays key file locations:
+
+```
+Log file: ~/.smithers/logs/smithers-20250115-143022-abc12345.log
+Claude output dir: /tmp
+```
+
 Parallel Claude sessions use streaming JSON output for real-time visibility. You can monitor progress:
 
 ```bash
 # Watch output file grow in real-time
 tail -f /tmp/smithers-fix-pr-*.output
+
+# Tail the session log for debugging
+tail -f ~/.smithers/logs/smithers-*.log
 
 # With verbose mode, stream logs are preserved for debugging
 smithers fix docs/my-feature.md 123 --verbose
@@ -141,6 +151,11 @@ Stream logs contain detailed JSON with:
 - Token usage and API costs
 - Duration and timing info
 - Full conversation history
+
+Session logs in `~/.smithers/logs/` contain:
+- All smithers operations and subprocess calls
+- Timing and error information for debugging
+- Logs are auto-cleaned after 30 days
 
 ## Options Reference
 
