@@ -149,13 +149,11 @@ def check_for_updates() -> None:
     print_info(f"Updating smithers to {latest_version}...")
     if _perform_auto_update():
         print_success(
-            f"Smithers updated to {latest_version}. "
-            "Restart your shell to use the new version."
+            f"Smithers updated to {latest_version}. Restart your shell to use the new version."
         )
         # Clear cache so next run doesn't try to update again
         _write_cache(latest_version)
     else:
         print_warning(
-            f"Auto-update failed. Run 'smithers update' manually to upgrade "
-            f"to {latest_version}."
+            f"Auto-update failed. Run 'smithers update' manually to upgrade to {latest_version}."
         )

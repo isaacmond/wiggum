@@ -60,8 +60,16 @@ The TODO file should have this structure:
 IMPORTANT: For the "Depends on" field, use the actual branch name (e.g., "{branch_example_1}"), NOT "Stage 1". Use "none" if there is no dependency.
 
 ### Guidelines
+
+**PR Size and Scope:**
+- Each stage should produce a substantial PR of **hundreds of lines** (200-500+ lines is ideal)
+- Aim for **fewer, larger PRs** rather than many small ones — consolidate related work
+- If a stage would be under 100 lines, combine it with an adjacent stage
+- A typical implementation should have 2-5 stages total, not 8-10
+
+**Stage Structure:**
 - Break the work into logical stages that are executed SEQUENTIALLY (one at a time)
-- Each stage should be a reviewable, self-contained PR
+- Each stage should be a reviewable, self-contained PR with a clear purpose
 - Specify dependencies clearly (which stages must come before)
 - Be specific about which files to create/modify
 - Include clear acceptance criteria for each stage

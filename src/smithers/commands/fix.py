@@ -175,7 +175,7 @@ def fix(
         description=f"Fixing review comments and CI on: {pr_list}",
     )
     if vk_task_id:
-        vibekanban_service.update_task_status(vk_task_id, "in_progress")
+        vibekanban_service.update_task_status(vk_task_id, "inprogress")
         logger.info(f"Created vibekanban task: {vk_task_id}")
 
     # Get branch names for each PR
@@ -230,7 +230,7 @@ def fix(
                 print_header("ALL COMMENTS RESOLVED & CI PASSING!")
                 console.print(f"Completed in {iteration} iteration(s)")
                 if vk_task_id:
-                    vibekanban_service.update_task_status(vk_task_id, "completed")
+                    vibekanban_service.update_task_status(vk_task_id, "done")
                 break
 
             if result["comments_done_ci_failing"]:

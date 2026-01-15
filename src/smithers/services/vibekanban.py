@@ -3,12 +3,14 @@
 import asyncio
 import json
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
 from smithers.logging_config import get_logger
+from smithers.services.config_loader import load_vibekanban_config
 
 logger = get_logger("smithers.services.vibekanban")
 
@@ -48,9 +50,10 @@ class VibekanbanService:
         Returns:
             Tool result as a dictionary, or empty dict on failure
         """
+        # Suppress all vibe-kanban noise (npm warnings + rust debug logs)
         server_params = StdioServerParameters(
-            command="npx",
-            args=["vibe-kanban@latest", "--mcp"],
+            command="sh",
+            args=["-c", "npx --quiet vibe-kanban@latest --mcp 2>/dev/null"],
         )
 
         async with (
@@ -199,25 +202,17 @@ def create_vibekanban_service() -> VibekanbanService:
     """Create a VibekanbanService from configuration.
 
     Loads configuration from ~/.smithers/config.json and environment variables.
-    If no project_id is configured, auto-discovers it from vibekanban.
+    Auto-discovers project by matching current directory name to project names.
 
     Returns:
         Configured VibekanbanService instance.
     """
-    from smithers.services.config_loader import (
-        load_vibekanban_config,
-        save_vibekanban_project_id,
-    )
-
     config = load_vibekanban_config()
 
-    # If enabled but no project_id, try to auto-discover
+    # Always auto-discover project based on current directory
+    # (env var or explicit config still takes precedence)
     if config.enabled and not config.project_id:
-        project_id = _auto_discover_project_id()
-        if project_id:
-            config.project_id = project_id
-            # Save to config file for future runs
-            save_vibekanban_project_id(project_id)
+        config.project_id = _auto_discover_project_id()
 
     return VibekanbanService(
         project_id=config.project_id,
@@ -229,8 +224,9 @@ def _auto_discover_project_id() -> str | None:
     """Auto-discover vibekanban project ID.
 
     Lists available projects and returns one automatically:
-    - If exactly one project exists, use it
-    - If multiple projects exist, use the first one
+    - First, try to match the current directory name to a project name
+    - If no match, use the first project if only one exists
+    - If multiple projects and no match, return None (don't guess)
 
     Returns:
         Project ID if found, None otherwise.
@@ -245,18 +241,25 @@ def _auto_discover_project_id() -> str | None:
         logger.debug("No vibekanban projects found")
         return None
 
+    # Try to match current directory name to a project
+    current_dir = Path.cwd().name
+    logger.debug(f"Looking for project matching directory: {current_dir}")
+
+    for project in projects:
+        project_name = project.get("name", "")
+        if project_name == current_dir:
+            project_id = project.get("id")
+            logger.info(f"Auto-selected vibekanban project: {project_name} ({project_id})")
+            return project_id
+
+    # No match found - only auto-select if there's exactly one project
     if len(projects) == 1:
         project = projects[0]
         project_id = project.get("id")
         name = project.get("name", "unknown")
-        logger.info(f"Auto-selected vibekanban project: {name} ({project_id})")
+        logger.info(f"Auto-selected vibekanban project (only one available): {name} ({project_id})")
         return project_id
 
-    # Multiple projects - use the first one
-    project = projects[0]
-    project_id = project.get("id")
-    name = project.get("name", "unknown")
-    logger.info(
-        f"Multiple vibekanban projects found, using first: {name} ({project_id})"
-    )
-    return project_id
+    # Multiple projects and no directory match - don't guess
+    logger.debug(f"No vibekanban project matches directory '{current_dir}', skipping")
+    return None

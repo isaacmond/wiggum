@@ -168,10 +168,10 @@ def render_standardize_analysis_prompt(pr_diffs: list[dict[str, str | int]]) -> 
     diffs_text = ""
     for pr in pr_diffs:
         diffs_text += f"""
-### PR #{pr['number']}: {pr['title']}
+### PR #{pr["number"]}: {pr["title"]}
 
 ```diff
-{pr['diff']}
+{pr["diff"]}
 ```
 
 """
@@ -208,9 +208,9 @@ def render_standardize_update_prompt(
             changes_text = "  - (no changes listed)"
 
         pr_analysis_text += f"""
-### PR #{pr['number']} (Position {pr['position']}/{total_prs})
-- **Suggested Title**: {pr['suggested_title']}
-- **Summary**: {pr['summary']}
+### PR #{pr["number"]} (Position {pr["position"]}/{total_prs})
+- **Suggested Title**: {pr["suggested_title"]}
+- **Summary**: {pr["summary"]}
 - **Key Changes**:
 {changes_text}
 

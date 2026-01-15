@@ -184,11 +184,13 @@ def standardize(
         try:
             pr_info = github_service.get_pr_info(pr_num)
             diff = fetch_pr_diff(pr_num)
-            pr_diffs.append({
-                "number": pr_num,
-                "title": pr_info.title,
-                "diff": diff,
-            })
+            pr_diffs.append(
+                {
+                    "number": pr_num,
+                    "title": pr_info.title,
+                    "diff": diff,
+                }
+            )
             console.print(f"  PR #{pr_num}: {pr_info.title}")
             logger.info(f"PR #{pr_num}: title={pr_info.title}, diff_length={len(diff)}")
         except GitHubError as e:
