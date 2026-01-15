@@ -654,8 +654,13 @@ class TmuxService:
         else:
             logger.debug(f"Session '{session}' kill returned {result.returncode} (may not exist)")
 
-    def kill_all_smithers_sessions(self) -> None:
-        """Kill all tmux sessions that appear to be smithers-related."""
+    def kill_all_smithers_sessions(self, exclude_parent: bool = True) -> None:
+        """Kill all tmux sessions that appear to be smithers worker sessions.
+
+        Args:
+            exclude_parent: If True, don't kill parent sessions (smithers-fix-*, smithers-impl-*).
+                           These are the main sessions that run the fix/implement commands.
+        """
         logger.info("Killing all smithers-related tmux sessions")
         try:
             result = subprocess.run(
@@ -670,6 +675,11 @@ class TmuxService:
             for session_name in sessions:
                 name = session_name.strip()
                 if not name:
+                    continue
+                # Never kill parent smithers sessions - these are the main sessions
+                # running the fix/implement commands
+                if exclude_parent and name.startswith(("smithers-fix-", "smithers-impl-")):
+                    logger.debug(f"Skipping parent session: {name}")
                     continue
                 # Kill sessions that look like branch names (start with letter, not just numbers)
                 if name[0].isalpha() and not name.isdigit():

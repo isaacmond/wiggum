@@ -401,6 +401,47 @@ class VibekanbanService:
             logger.info(f"Cleaned up {cleaned} orphaned vibekanban task(s)")
         return cleaned
 
+    def mark_fix_tasks_completed(self, pr_numbers: list[int], branches: dict[int, str]) -> int:
+        """Mark all [fix] tasks for the given PRs as completed.
+
+        This is a safety net to ensure tasks are marked done when the fix loop
+        completes successfully, even if the on_session_complete callbacks
+        didn't work correctly.
+
+        Args:
+            pr_numbers: List of PR numbers that were fixed
+            branches: Mapping of PR numbers to branch names
+
+        Returns:
+            Number of tasks marked completed.
+        """
+        if not self.is_configured():
+            return 0
+
+        completed = 0
+        for pr_num in pr_numbers:
+            branch = branches.get(pr_num, "")
+            task_title = f"[fix] PR #{pr_num}: {branch}"
+            try:
+                task = self.find_task(task_title)
+                if task:
+                    task_id = task.get("id")
+                    current_status = task.get("status", "")
+                    # Only update if not already completed
+                    if (
+                        task_id
+                        and current_status != "done"
+                        and self.update_task_status(task_id, "completed")
+                    ):
+                        logger.info(f"Marked fix task completed: PR #{pr_num} ({task_id})")
+                        completed += 1
+            except Exception:
+                logger.warning(f"Failed to mark fix task completed for PR #{pr_num}", exc_info=True)
+
+        if completed > 0:
+            logger.info(f"Marked {completed} fix task(s) as completed")
+        return completed
+
 
 def _is_vibekanban_running() -> bool:
     """Check if vibe-kanban backend is running.

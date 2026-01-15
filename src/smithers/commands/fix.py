@@ -261,6 +261,9 @@ def fix(
     if exit_error:
         raise typer.Exit(1) from exit_error
 
+    # Mark all vibekanban fix tasks as completed (safety net)
+    vibekanban_service.mark_fix_tasks_completed(pr_numbers, pr_branches)
+
     print_header("Smithers Loop Complete!")
     console.print(f"Processed {len(pr_numbers)} PRs")
     console.print(f"Total iterations: {iteration}")
@@ -375,25 +378,35 @@ def _run_fix_iteration(
         )
         prompt_file.write_text(prompt)
 
-        # Create vibekanban task for this PR fix session with PR link in description
-        # Only create/reuse task if there are actual issues to fix
+        # Find or create vibekanban task for this PR fix session
+        # Always find existing tasks so we can update their status when done
+        # Only create NEW tasks if there are actual issues to fix
         pr_vk_task_id: str | None = None
+        task_title = f"[fix] PR #{pr_num}: {branch}"
+        pr_url = pr_urls.get(pr_num, "")
+        task_description = (
+            f"Fixing review comments on {branch}\n\nPR: {pr_url}"
+            if pr_url
+            else f"Fixing review comments on {branch}"
+        )
+
         if num_comments > 0 or num_ci_failures > 0:
-            pr_url = pr_urls.get(pr_num, "")
-            task_description = (
-                f"Fixing review comments on {branch}\n\nPR: {pr_url}"
-                if pr_url
-                else f"Fixing review comments on {branch}"
-            )
-            # Find existing task or create new one (reuses existing tasks)
+            # Issues to fix - find or create task and set to in_progress
             pr_vk_task_id = vibekanban_service.find_or_create_task(
-                title=f"[fix] PR #{pr_num}: {branch}",
+                title=task_title,
                 description=task_description,
             )
             if pr_vk_task_id:
                 logger.info(f"Using vibekanban task for PR #{pr_num}: {pr_vk_task_id}")
         else:
-            logger.info(f"Skipping vibekanban task for PR #{pr_num}: no issues to fix")
+            # No issues - just find existing task (don't create) so we can mark it done
+            existing_task = vibekanban_service.find_task(task_title)
+            if existing_task:
+                pr_vk_task_id = existing_task.get("id")
+                if pr_vk_task_id:
+                    logger.info(f"Found existing vibekanban task for PR #{pr_num}: {pr_vk_task_id}")
+            else:
+                logger.info(f"No vibekanban task for PR #{pr_num}: no issues to fix")
 
         group_data.append(
             {
