@@ -11,6 +11,7 @@ from smithers.commands.plan import plan
 from smithers.commands.quote import quote
 from smithers.commands.rejoin import rejoin
 from smithers.commands.sessions import sessions
+from smithers.commands.standardize import standardize
 from smithers.commands.update import update
 from smithers.logging_config import (
     cleanup_old_logs,
@@ -32,6 +33,7 @@ app = typer.Typer(
 app.command(name="plan")(plan)
 app.command(name="implement")(implement)
 app.command(name="fix")(fix)
+app.command(name="standardize")(standardize)
 app.command(name="rejoin")(rejoin)
 app.command(name="sessions")(sessions)
 app.command(name="kill")(kill)

@@ -57,7 +57,11 @@ uv tool install git+https://github.com/isaacmond/smithers.git
 
 ```bash
 # Create staged PRs from a design document
+# Branch names will be prefixed with your git user's first name (e.g., isaac/stage-1-models)
 smithers implement docs/my-feature.md --base main
+
+# With custom branch prefix
+smithers implement docs/my-feature.md --branch-prefix myprefix/
 
 # With custom model
 smithers implement docs/my-feature.md --model claude-sonnet-4-20250514
@@ -81,6 +85,25 @@ smithers fix docs/my-feature.md https://github.com/owner/repo/pull/123
 # With max iterations limit
 smithers fix docs/my-feature.md 123 --max-iterations 5
 ```
+
+### Standardize PR Titles and Descriptions
+
+```bash
+# Standardize a series of related PRs with consistent titles and descriptions
+smithers standardize 123 124 125
+
+# Also accepts GitHub PR URLs
+smithers standardize https://github.com/owner/repo/pull/123 124 125
+
+# Dry run - show analysis without modifying PRs
+smithers standardize 123 124 125 --dry-run
+```
+
+Analyzes all PR diffs to understand the overall feature, then updates each PR with:
+- Consistent titles: `Feature Name (1/3): Description`
+- Overview and summary of changes
+- Table of all PRs in the series
+- Dependency information
 
 ### Interactive Planning
 
@@ -151,7 +174,7 @@ smithers update
 | `--model` | `-m` | Claude model to use (default: claude-opus-4-5-20251101) | all |
 | `--base` | `-b` | Base branch for PRs (default: main) | implement |
 | `--todo-file` | `-t` | Existing plan file to use | implement |
-| `--branch-prefix` | `-p` | Prefix for branch names (e.g., `username/`) | implement |
+| `--branch-prefix` | `-p` | Prefix for branch names (default: git user's first name, e.g., `isaac/`) | implement |
 | `--resume` | `-r` | Resume from checkpoint, skip completed stages | implement |
 | `--max-iterations` | | Max fix iterations, 0=unlimited (default: 0) | fix |
 | `--dry-run` | `-n` | Show what would be done without executing | implement, fix |
