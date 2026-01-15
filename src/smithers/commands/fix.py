@@ -4,7 +4,6 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
-from urllib.parse import urlparse
 
 import typer
 
@@ -23,44 +22,13 @@ from smithers.services.vibekanban import (
     create_vibekanban_service,
     get_vibekanban_url,
 )
+from smithers.utils.parsing import parse_pr_identifier
 
 logger = get_logger("smithers.commands.fix")
 
 
-def parse_pr_identifier(identifier: str) -> int:
-    """Parse a PR number from either a number string or a GitHub PR URL.
-
-    Args:
-        identifier: Either a PR number (e.g., "123") or a GitHub PR URL
-                   (e.g., "https://github.com/owner/repo/pull/123")
-
-    Returns:
-        The PR number as an integer
-
-    Raises:
-        ValueError: If the identifier cannot be parsed as a PR number
-    """
-    # Try parsing as a simple integer first
-    try:
-        return int(identifier)
-    except ValueError:
-        pass
-
-    # Try parsing as a GitHub PR URL
-    parsed = urlparse(identifier)
-    if parsed.netloc in ("github.com", "www.github.com"):
-        # URL format: https://github.com/owner/repo/pull/123
-        parts = parsed.path.strip("/").split("/")
-        if len(parts) >= 4 and parts[2] == "pull":
-            try:
-                return int(parts[3])
-            except ValueError:
-                pass
-
-    raise ValueError(
-        f"Invalid PR identifier: {identifier}. "
-        "Expected a PR number (e.g., 123) or GitHub URL (e.g., https://github.com/owner/repo/pull/123)"
-    )
+# Type alias for PR data used in fix iterations
+PRData = dict[str, object]
 
 
 def fix(
@@ -269,39 +237,28 @@ def fix(
     console.print(f"Total iterations: {iteration}")
 
 
-def _run_fix_iteration(
+def _run_fix_planning(
     design_doc: Path,
-    todo_file: Path,
+    design_content: str,
     pr_numbers: list[int],
-    pr_branches: dict[int, str],
-    pr_urls: dict[int, str],
-    git_service: GitService,
-    tmux_service: TmuxService,
+    todo_file: Path,
     claude_service: ClaudeService,
-    vibekanban_service: VibekanbanService,
     config: Config,
-) -> dict[str, bool | int]:
-    """Run a single fix iteration.
+) -> tuple[bool, str, int, int]:
+    """Run the planning phase of a fix iteration.
 
     Args:
         design_doc: Path to the design document.
-        todo_file: Path to the TODO file for this iteration.
+        design_content: Content of the design document.
         pr_numbers: List of PR numbers to fix.
-        pr_branches: Mapping of PR numbers to branch names.
-        pr_urls: Mapping of PR numbers to GitHub URLs.
-        git_service: Git service instance.
-        tmux_service: Tmux service instance.
+        todo_file: Path to the TODO file for this iteration.
         claude_service: Claude service instance.
-        vibekanban_service: Vibekanban service for task tracking.
         config: Configuration instance.
 
     Returns:
-        Dict with status flags and counts
+        Tuple of (success, todo_content, num_comments, num_ci_failures).
+        If success is False, todo_content will be empty.
     """
-    logger.info(f"Running fix iteration: pr_numbers={pr_numbers}, todo_file={todo_file}")
-    design_content = design_doc.read_text()
-
-    # Create fix planning prompt
     planning_prompt = render_fix_planning_prompt(
         design_doc_path=design_doc,
         design_content=design_content,
@@ -319,18 +276,17 @@ def _run_fix_iteration(
     if not result.success:
         logger.warning(f"Claude Code failed during TODO creation: exit_code={result.exit_code}")
         console.print("[yellow]Claude Code failed during TODO creation. Retrying...[/yellow]")
-        return {"all_done": False, "comments_done_ci_failing": False}
+        return (False, "", 0, 0)
 
     if not todo_file.exists():
         logger.warning(f"TODO file not created at {todo_file}")
         console.print(f"[yellow]TODO file not created at {todo_file}. Retrying...[/yellow]")
-        return {"all_done": False, "comments_done_ci_failing": False}
+        return (False, "", 0, 0)
 
     logger.info(f"Fix plan created: {todo_file}")
     print_success(f"Review fix plan created: {todo_file}")
     todo_content = todo_file.read_text()
 
-    # Extract planning results to check if any fixes are needed
     planning_json = result.extract_json()
     num_comments = planning_json.get("num_comments", 0) if planning_json else 0
     num_ci_failures = planning_json.get("num_ci_failures", 0) if planning_json else 0
@@ -340,10 +296,44 @@ def _run_fix_iteration(
         f"[cyan]{num_ci_failures}[/cyan] CI failures"
     )
 
-    # Process each PR in parallel
-    print_info("\nCreating worktrees and launching Claude sessions for each PR...")
+    return (True, todo_content, num_comments, num_ci_failures)
 
-    group_data: list[dict[str, object]] = []
+
+def _setup_pr_worktrees(
+    pr_numbers: list[int],
+    pr_branches: dict[int, str],
+    pr_urls: dict[int, str],
+    design_doc: Path,
+    design_content: str,
+    todo_file: Path,
+    todo_content: str,
+    num_comments: int,
+    num_ci_failures: int,
+    git_service: GitService,
+    vibekanban_service: VibekanbanService,
+    config: Config,
+) -> list[PRData]:
+    """Set up worktrees and prepare data for each PR.
+
+    Args:
+        pr_numbers: List of PR numbers to fix.
+        pr_branches: Mapping of PR numbers to branch names.
+        pr_urls: Mapping of PR numbers to GitHub URLs.
+        design_doc: Path to the design document.
+        design_content: Content of the design document.
+        todo_file: Path to the TODO file for this iteration.
+        todo_content: Content of the TODO file.
+        num_comments: Number of unresolved comments found.
+        num_ci_failures: Number of CI failures found.
+        git_service: Git service instance.
+        vibekanban_service: Vibekanban service for task tracking.
+        config: Configuration instance.
+
+    Returns:
+        List of PR data dictionaries containing worktree paths, file paths, and task IDs.
+    """
+    print_info("\nCreating worktrees and launching Claude sessions for each PR...")
+    group_data: list[PRData] = []
 
     for pr_num in pr_numbers:
         branch = pr_branches[pr_num]
@@ -379,34 +369,14 @@ def _run_fix_iteration(
         prompt_file.write_text(prompt)
 
         # Find or create vibekanban task for this PR fix session
-        # Always find existing tasks so we can update their status when done
-        # Only create NEW tasks if there are actual issues to fix
-        pr_vk_task_id: str | None = None
-        task_title = f"[fix] PR #{pr_num}: {branch}"
-        pr_url = pr_urls.get(pr_num, "")
-        task_description = (
-            f"Fixing review comments on {branch}\n\nPR: {pr_url}"
-            if pr_url
-            else f"Fixing review comments on {branch}"
+        pr_vk_task_id = _get_or_create_vibekanban_task(
+            pr_num=pr_num,
+            branch=branch,
+            pr_url=pr_urls.get(pr_num, ""),
+            num_comments=num_comments,
+            num_ci_failures=num_ci_failures,
+            vibekanban_service=vibekanban_service,
         )
-
-        if num_comments > 0 or num_ci_failures > 0:
-            # Issues to fix - find or create task and set to in_progress
-            pr_vk_task_id = vibekanban_service.find_or_create_task(
-                title=task_title,
-                description=task_description,
-            )
-            if pr_vk_task_id:
-                logger.info(f"Using vibekanban task for PR #{pr_num}: {pr_vk_task_id}")
-        else:
-            # No issues - just find existing task (don't create) so we can mark it done
-            existing_task = vibekanban_service.find_task(task_title)
-            if existing_task:
-                pr_vk_task_id = existing_task.get("id")
-                if pr_vk_task_id:
-                    logger.info(f"Found existing vibekanban task for PR #{pr_num}: {pr_vk_task_id}")
-            else:
-                logger.info(f"No vibekanban task for PR #{pr_num}: no issues to fix")
 
         group_data.append(
             {
@@ -421,9 +391,295 @@ def _run_fix_iteration(
             }
         )
 
-    # Launch all Claude sessions
+    return group_data
+
+
+def _get_or_create_vibekanban_task(
+    pr_num: int,
+    branch: str,
+    pr_url: str,
+    num_comments: int,
+    num_ci_failures: int,
+    vibekanban_service: VibekanbanService,
+) -> str | None:
+    """Get or create a vibekanban task for a PR fix session.
+
+    Args:
+        pr_num: PR number.
+        branch: Branch name.
+        pr_url: GitHub PR URL.
+        num_comments: Number of unresolved comments.
+        num_ci_failures: Number of CI failures.
+        vibekanban_service: Vibekanban service instance.
+
+    Returns:
+        Task ID if found or created, None otherwise.
+    """
+    task_title = f"[fix] PR #{pr_num}: {branch}"
+    task_description = (
+        f"Fixing review comments on {branch}\n\nPR: {pr_url}"
+        if pr_url
+        else f"Fixing review comments on {branch}"
+    )
+
+    if num_comments > 0 or num_ci_failures > 0:
+        # Issues to fix - find or create task and set to in_progress
+        pr_vk_task_id = vibekanban_service.find_or_create_task(
+            title=task_title,
+            description=task_description,
+        )
+        if pr_vk_task_id:
+            logger.info(f"Using vibekanban task for PR #{pr_num}: {pr_vk_task_id}")
+        return pr_vk_task_id
+    # No issues - just find existing task (don't create) so we can mark it done
+    existing_task = vibekanban_service.find_task(task_title)
+    if existing_task:
+        pr_vk_task_id = existing_task.get("id")
+        if pr_vk_task_id:
+            logger.info(f"Found existing vibekanban task for PR #{pr_num}: {pr_vk_task_id}")
+        return pr_vk_task_id
+    logger.info(f"No vibekanban task for PR #{pr_num}: no issues to fix")
+    return None
+
+
+def _collect_fix_results(
+    group_data: list[PRData],
+    claude_service: ClaudeService,
+    git_service: GitService,
+    config: Config,
+) -> dict[str, bool | int]:
+    """Collect and process results from all PR fix sessions.
+
+    Args:
+        group_data: List of PR data dictionaries.
+        claude_service: Claude service instance.
+        git_service: Git service instance.
+        config: Configuration instance.
+
+    Returns:
+        Dict with aggregated status flags and counts.
+    """
+    logger.info("Collecting results from all PRs")
+    print_info("\nCollecting results from all PRs...")
+
+    total_unresolved = 0
+    total_addressed = 0
+    all_done = True
+    all_ci_passing = True
+    all_base_merged = True
+    all_merge_conflicts_resolved = True
+
+    for data in group_data:
+        pr_num = data["pr_number"]
+        output_file = Path(str(data["output_file"]))
+        prompt_file = Path(str(data["prompt_file"]))
+        exit_file = Path(str(data["exit_file"]))
+        stream_log_file = Path(str(data["stream_log_file"]))
+        branch = str(data["branch"])
+
+        result = _process_pr_result(
+            pr_num=pr_num,
+            output_file=output_file,
+            claude_service=claude_service,
+            config=config,
+        )
+
+        if not result["done"]:
+            all_done = False
+        if result["ci_failing"]:
+            all_ci_passing = False
+        if not result["base_merged"]:
+            all_base_merged = False
+        if not result["merge_conflicts_resolved"]:
+            all_merge_conflicts_resolved = False
+        total_unresolved += result["unresolved"]
+        total_addressed += result["addressed"]
+
+        # Cleanup temp files (keep stream log for debugging if verbose)
+        _cleanup_pr_files(prompt_file, output_file, exit_file, stream_log_file, config)
+
+        # Cleanup worktree
+        git_service.cleanup_worktree(branch)
+
+    # Print summary
+    logger.info(
+        f"Iteration summary: unresolved={total_unresolved}, addressed={total_addressed}, "
+        f"ci_passing={all_ci_passing}, base_merged={all_base_merged}, "
+        f"merge_conflicts_resolved={all_merge_conflicts_resolved}, all_done={all_done}"
+    )
+    console.print(f"\nTotal unresolved before: {total_unresolved}")
+    console.print(f"Total addressed: {total_addressed}")
+    console.print(f"All CI passing: {all_ci_passing}")
+    console.print(f"All base branches merged: {all_base_merged}")
+    console.print(f"All merge conflicts resolved: {all_merge_conflicts_resolved}")
+    console.print(f"All done: {all_done}")
+
+    return {
+        "all_done": all_done,
+        "all_ci_passing": all_ci_passing,
+        "all_base_merged": all_base_merged,
+        "all_merge_conflicts_resolved": all_merge_conflicts_resolved,
+        "total_unresolved": total_unresolved,
+        "total_addressed": total_addressed,
+    }
+
+
+def _process_pr_result(
+    pr_num: object,
+    output_file: Path,
+    claude_service: ClaudeService,
+    config: Config,
+) -> dict[str, bool | int]:
+    """Process the result from a single PR fix session.
+
+    Args:
+        pr_num: PR number.
+        output_file: Path to the output file.
+        claude_service: Claude service instance.
+        config: Configuration instance.
+
+    Returns:
+        Dict with status flags for this PR.
+    """
+    from smithers.services.claude import ClaudeResult
+
+    result: dict[str, bool | int] = {
+        "done": False,
+        "ci_failing": False,
+        "base_merged": True,
+        "merge_conflicts_resolved": True,
+        "unresolved": 0,
+        "addressed": 0,
+    }
+
+    if not output_file.exists():
+        logger.warning(f"No output file found for PR #{pr_num}: {output_file}")
+        console.print(f"[yellow]Warning: No output file found for PR #{pr_num}[/yellow]")
+        return result
+
+    raw_output = output_file.read_text()
+    output = claude_service.parse_stream_json_output(raw_output)
+    logger.debug(f"PR #{pr_num} output ({len(output)} chars)")
+
+    # Log stream stats for debugging
+    stats = claude_service.get_stream_stats(raw_output)
+    if stats:
+        logger.info(
+            f"PR #{pr_num} stats: duration={stats.get('duration_ms')}ms, "
+            f"cost=${stats.get('total_cost_usd', 0):.4f}"
+        )
+
+    if config.verbose:
+        print_header(f"OUTPUT FROM PR #{pr_num}")
+        console.print(output)
+
+    fix_result = ClaudeResult(output=output, exit_code=0, success=True)
+    json_output = fix_result.extract_json()
+
+    if json_output:
+        logger.debug(f"PR #{pr_num} JSON output: {json_output}")
+        result["done"] = json_output.get("done", False)
+        result["ci_failing"] = json_output.get("ci_status") == "failing"
+        result["base_merged"] = json_output.get("base_branch_merged", False)
+        result["merge_conflicts_resolved"] = json_output.get("merge_conflicts") != "unresolved"
+        result["unresolved"] = json_output.get("unresolved_before", 0)
+        result["addressed"] = json_output.get("addressed", 0)
+    else:
+        logger.warning(f"PR #{pr_num}: No JSON output found, assuming not done")
+
+    return result
+
+
+def _cleanup_pr_files(
+    prompt_file: Path,
+    output_file: Path,
+    exit_file: Path,
+    stream_log_file: Path,
+    config: Config,
+) -> None:
+    """Clean up temporary files from a PR fix session.
+
+    Args:
+        prompt_file: Path to the prompt file.
+        output_file: Path to the output file.
+        exit_file: Path to the exit file.
+        stream_log_file: Path to the stream log file.
+        config: Configuration instance.
+    """
+    files_to_clean = [prompt_file, output_file, exit_file]
+    if not config.verbose:
+        files_to_clean.append(stream_log_file)
+    for f in files_to_clean:
+        if f.exists():
+            f.unlink()
+    if config.verbose and stream_log_file.exists():
+        logger.info(f"Stream log preserved at: {stream_log_file}")
+
+
+def _run_fix_iteration(
+    design_doc: Path,
+    todo_file: Path,
+    pr_numbers: list[int],
+    pr_branches: dict[int, str],
+    pr_urls: dict[int, str],
+    git_service: GitService,
+    tmux_service: TmuxService,
+    claude_service: ClaudeService,
+    vibekanban_service: VibekanbanService,
+    config: Config,
+) -> dict[str, bool | int]:
+    """Run a single fix iteration.
+
+    Args:
+        design_doc: Path to the design document.
+        todo_file: Path to the TODO file for this iteration.
+        pr_numbers: List of PR numbers to fix.
+        pr_branches: Mapping of PR numbers to branch names.
+        pr_urls: Mapping of PR numbers to GitHub URLs.
+        git_service: Git service instance.
+        tmux_service: Tmux service instance.
+        claude_service: Claude service instance.
+        vibekanban_service: Vibekanban service for task tracking.
+        config: Configuration instance.
+
+    Returns:
+        Dict with status flags and counts
+    """
+    logger.info(f"Running fix iteration: pr_numbers={pr_numbers}, todo_file={todo_file}")
+    design_content = design_doc.read_text()
+
+    # Phase 1: Run planning to create fix TODO
+    success, todo_content, num_comments, num_ci_failures = _run_fix_planning(
+        design_doc=design_doc,
+        design_content=design_content,
+        pr_numbers=pr_numbers,
+        todo_file=todo_file,
+        claude_service=claude_service,
+        config=config,
+    )
+
+    if not success:
+        return {"all_done": False, "comments_done_ci_failing": False}
+
+    # Phase 2: Set up worktrees and prepare data for each PR
+    group_data = _setup_pr_worktrees(
+        pr_numbers=pr_numbers,
+        pr_branches=pr_branches,
+        pr_urls=pr_urls,
+        design_doc=design_doc,
+        design_content=design_content,
+        todo_file=todo_file,
+        todo_content=todo_content,
+        num_comments=num_comments,
+        num_ci_failures=num_ci_failures,
+        git_service=git_service,
+        vibekanban_service=vibekanban_service,
+        config=config,
+    )
+
+    # Phase 3: Launch all Claude sessions
     sessions: list[str] = []
-    session_to_data: dict[str, dict[str, object]] = {}
+    session_to_data: dict[str, PRData] = {}
     for data in group_data:
         command = claude_service.create_tmux_command(
             prompt_file=Path(str(data["prompt_file"])),
@@ -444,6 +700,8 @@ def _run_fix_iteration(
     # Create callback for immediate vibekanban updates when each session completes
     def on_session_complete(session_name: str) -> None:
         """Update vibekanban status immediately when a session completes."""
+        from smithers.services.claude import ClaudeResult
+
         data = session_to_data.get(session_name)
         if not data:
             return
@@ -459,8 +717,6 @@ def _run_fix_iteration(
         if output_file.exists():
             raw_output = output_file.read_text()
             output = claude_service.parse_stream_json_output(raw_output)
-            from smithers.services.claude import ClaudeResult
-
             fix_result = ClaudeResult(output=output, exit_code=0, success=True)
             json_output = fix_result.extract_json()
             if json_output:
@@ -477,118 +733,28 @@ def _run_fix_iteration(
         on_session_complete=on_session_complete,
     )
 
-    # Collect results
-    logger.info("Collecting results from all PRs")
-    print_info("\nCollecting results from all PRs...")
-
-    total_unresolved = 0
-    total_addressed = 0
-    all_done = True
-    all_ci_passing = True
-    all_base_merged = True
-    all_merge_conflicts_resolved = True
-
-    for data in group_data:
-        pr_num = data["pr_number"]
-        output_file = Path(str(data["output_file"]))
-        prompt_file = Path(str(data["prompt_file"]))
-        exit_file = Path(str(data["exit_file"]))
-        stream_log_file = Path(str(data["stream_log_file"]))
-        branch = str(data["branch"])
-
-        pr_done = False
-        if output_file.exists():
-            raw_output = output_file.read_text()
-            # Parse the streaming JSON output to extract the actual text result
-            output = claude_service.parse_stream_json_output(raw_output)
-            logger.debug(f"PR #{pr_num} output ({len(output)} chars)")
-
-            # Log stream stats for debugging
-            stats = claude_service.get_stream_stats(raw_output)
-            if stats:
-                logger.info(
-                    f"PR #{pr_num} stats: duration={stats.get('duration_ms')}ms, "
-                    f"cost=${stats.get('total_cost_usd', 0):.4f}"
-                )
-
-            if config.verbose:
-                print_header(f"OUTPUT FROM PR #{pr_num}")
-                console.print(output)
-
-            # Extract results from JSON
-            from smithers.services.claude import ClaudeResult
-
-            fix_result = ClaudeResult(output=output, exit_code=0, success=True)
-            json_output = fix_result.extract_json()
-
-            if json_output:
-                logger.debug(f"PR #{pr_num} JSON output: {json_output}")
-                pr_done = json_output.get("done", False)
-                if not pr_done:
-                    all_done = False
-                if json_output.get("ci_status") == "failing":
-                    all_ci_passing = False
-                if not json_output.get("base_branch_merged", False):
-                    all_base_merged = False
-                if json_output.get("merge_conflicts") == "unresolved":
-                    all_merge_conflicts_resolved = False
-                total_unresolved += json_output.get("unresolved_before", 0)
-                total_addressed += json_output.get("addressed", 0)
-            else:
-                logger.warning(f"PR #{pr_num}: No JSON output found, assuming not done")
-                all_done = False
-        else:
-            logger.warning(f"No output file found for PR #{pr_num}: {output_file}")
-            console.print(f"[yellow]Warning: No output file found for PR #{pr_num}[/yellow]")
-            all_done = False
-
-        # NOTE: vibekanban task status is updated immediately via on_session_complete callback
-
-        # Cleanup temp files (keep stream log for debugging if verbose)
-        files_to_clean = [prompt_file, output_file, exit_file]
-        if not config.verbose:
-            files_to_clean.append(stream_log_file)
-        for f in files_to_clean:
-            if f.exists():
-                f.unlink()
-        if config.verbose and stream_log_file.exists():
-            logger.info(f"Stream log preserved at: {stream_log_file}")
-
-        # Cleanup worktree
-        git_service.cleanup_worktree(branch)
-
-    # Print summary
-    logger.info(
-        f"Iteration summary: unresolved={total_unresolved}, addressed={total_addressed}, "
-        f"ci_passing={all_ci_passing}, base_merged={all_base_merged}, "
-        f"merge_conflicts_resolved={all_merge_conflicts_resolved}, all_done={all_done}"
+    # Phase 4: Collect results
+    results = _collect_fix_results(
+        group_data=group_data,
+        claude_service=claude_service,
+        git_service=git_service,
+        config=config,
     )
-    console.print(f"\nTotal unresolved before: {total_unresolved}")
-    console.print(f"Total addressed: {total_addressed}")
-    console.print(f"All CI passing: {all_ci_passing}")
-    console.print(f"All base branches merged: {all_base_merged}")
-    console.print(f"All merge conflicts resolved: {all_merge_conflicts_resolved}")
-    console.print(f"All done: {all_done}")
 
-    # All conditions must be met for fix to be complete:
-    # 1. Claude reports done for all PRs
-    # 2. All CI checks passing
-    # 3. All base branches merged
-    # 4. All merge conflicts resolved
-    # 5. No unresolved comments remaining
+    # All conditions must be met for fix to be complete
     truly_all_done = (
-        all_done
-        and all_ci_passing
-        and all_base_merged
-        and all_merge_conflicts_resolved
-        and total_unresolved == 0
+        results["all_done"]
+        and results["all_ci_passing"]
+        and results["all_base_merged"]
+        and results["all_merge_conflicts_resolved"]
+        and results["total_unresolved"] == 0
     )
 
     return {
         "all_done": truly_all_done,
-        "comments_done_ci_failing": all_done and not all_ci_passing,
-        "total_unresolved": total_unresolved,
-        "total_addressed": total_addressed,
-        "all_base_merged": all_base_merged,
-        "all_merge_conflicts_resolved": all_merge_conflicts_resolved,
+        "comments_done_ci_failing": results["all_done"] and not results["all_ci_passing"],
+        "total_unresolved": results["total_unresolved"],
+        "total_addressed": results["total_addressed"],
+        "all_base_merged": results["all_base_merged"],
+        "all_merge_conflicts_resolved": results["all_merge_conflicts_resolved"],
     }

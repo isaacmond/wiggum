@@ -457,6 +457,127 @@ def implement(
         console.print("\n[yellow]No PRs created. Run fix mode manually if needed.[/yellow]")
 
 
+def _handle_resume_mode(todo: TodoFile, resume: bool) -> list[int]:
+    """Handle resume mode and return collected PRs from completed stages.
+
+    Args:
+        todo: Parsed TODO file.
+        resume: Whether resume mode is enabled.
+
+    Returns:
+        List of PR numbers from already completed stages (if resuming).
+    """
+    collected_prs: list[int] = []
+    completed_stages = todo.get_completed_stages()
+
+    if resume:
+        if completed_stages:
+            completed_nums = [s.number for s in completed_stages]
+            for stage in completed_stages:
+                if stage.pr_number:
+                    collected_prs.append(stage.pr_number)
+                    logger.info(
+                        f"Resume: Including existing PR #{stage.pr_number} "
+                        f"from Stage {stage.number}"
+                    )
+            console.print(
+                f"[cyan]Resume mode: Skipping {len(completed_stages)} completed stage(s): "
+                f"{completed_nums}[/cyan]"
+            )
+    elif completed_stages:
+        # Warn if there are completed stages but not resuming
+        completed_nums = [s.number for s in completed_stages]
+        logger.warning(f"Found completed stages {completed_nums} but --resume not specified")
+        console.print(
+            f"[yellow]Warning: Found {len(completed_stages)} completed stage(s) "
+            f"{completed_nums}. Use --resume to skip them, or they will be re-run.[/yellow]"
+        )
+
+    return collected_prs
+
+
+def _process_stage_result(
+    stage_number: int,
+    output_file: Path,
+    stage_vk_task_id: str | None,
+    vibekanban_service: VibekanbanService,
+    config: Config,
+) -> int | None:
+    """Process the result from a completed stage session.
+
+    Args:
+        stage_number: The stage number.
+        output_file: Path to the output file.
+        stage_vk_task_id: Vibekanban task ID if tracking.
+        vibekanban_service: Vibekanban service instance.
+        config: Configuration instance.
+
+    Returns:
+        PR number if extracted, None otherwise.
+    """
+    from smithers.services.claude import ClaudeResult
+
+    logger.info(f"Collecting result from Stage {stage_number}")
+    console.print("\nCollecting result...")
+
+    if not output_file.exists():
+        logger.warning(f"No output file found for Stage {stage_number}: {output_file}")
+        console.print(f"[yellow]Warning: No output file found for Stage {stage_number}[/yellow]")
+        console.print(
+            f"[yellow]Stage {stage_number} kept as in_progress - "
+            f"verify completion manually[/yellow]"
+        )
+        if stage_vk_task_id:
+            vibekanban_service.update_task_status(stage_vk_task_id, "failed")
+        return None
+
+    output = output_file.read_text()
+    logger.debug(f"Stage {stage_number} output ({len(output)} chars)")
+
+    if config.verbose:
+        print_header(f"OUTPUT FROM STAGE {stage_number}")
+        console.print(output)
+
+    stage_result = ClaudeResult(output=output, exit_code=0, success=True)
+    pr_num = stage_result.extract_pr_number()
+    logger.debug(f"Stage {stage_number} extracted PR number: {pr_num}")
+
+    if pr_num:
+        logger.info(f"Stage {stage_number} complete: PR #{pr_num}")
+        print_success(f"Stage {stage_number} complete. PR #{pr_num}")
+        if stage_vk_task_id:
+            vibekanban_service.update_task_status(stage_vk_task_id, "completed")
+    else:
+        msg = f"Could not extract PR number for Stage {stage_number}"
+        logger.warning(msg)
+        console.print(f"[yellow]Warning: {msg}[/yellow]")
+        console.print(
+            f"[yellow]Stage {stage_number} kept as in_progress - "
+            f"verify completion manually[/yellow]"
+        )
+        if stage_vk_task_id:
+            vibekanban_service.update_task_status(stage_vk_task_id, "failed")
+
+    return pr_num
+
+
+def _cleanup_stage_files(
+    prompt_file: Path,
+    output_file: Path,
+    exit_file: Path,
+) -> None:
+    """Clean up temporary files from a stage session.
+
+    Args:
+        prompt_file: Path to the prompt file.
+        output_file: Path to the output file.
+        exit_file: Path to the exit file.
+    """
+    for f in [prompt_file, output_file, exit_file]:
+        if f.exists():
+            f.unlink()
+
+
 def _run_implementation_phase(
     design_doc: Path,
     design_content: str,
@@ -488,6 +609,8 @@ def _run_implementation_phase(
     Returns:
         List of PR numbers created (including previously completed if resuming).
     """
+    from smithers.models.stage import StageStatus
+
     logger.info(
         f"Starting implementation phase: todo_file={todo_file}, "
         f"base_branch={base_branch}, resume={resume}"
@@ -497,36 +620,8 @@ def _run_implementation_phase(
     logger.info(f"Found {len(todo.stages)} stages to process sequentially")
     console.print(f"Stages to process: [cyan]{len(todo.stages)}[/cyan] (sequential execution)")
 
-    collected_prs: list[int] = []
-
     # Handle resume mode - collect PRs from already completed stages
-    if resume:
-        completed_stages = todo.get_completed_stages()
-        if completed_stages:
-            completed_nums = [s.number for s in completed_stages]
-            for stage in completed_stages:
-                if stage.pr_number:
-                    collected_prs.append(stage.pr_number)
-                    logger.info(
-                        f"Resume: Including existing PR #{stage.pr_number} "
-                        f"from Stage {stage.number}"
-                    )
-            console.print(
-                f"[cyan]Resume mode: Skipping {len(completed_stages)} completed stage(s): "
-                f"{completed_nums}[/cyan]"
-            )
-    else:
-        # Warn if there are completed stages but not resuming
-        completed_stages = todo.get_completed_stages()
-        if completed_stages:
-            completed_nums = [s.number for s in completed_stages]
-            logger.warning(f"Found completed stages {completed_nums} but --resume not specified")
-            console.print(
-                f"[yellow]Warning: Found {len(completed_stages)} completed stage(s) "
-                f"{completed_nums}. Use --resume to skip them, or they will be re-run.[/yellow]"
-            )
-
-    from smithers.models.stage import StageStatus
+    collected_prs = _handle_resume_mode(todo, resume)
 
     # Process each stage sequentially
     for stage in todo.stages:
@@ -601,62 +696,19 @@ def _run_implementation_phase(
         # Wait for session to complete
         tmux_service.wait_for_sessions([session], poll_interval=config.poll_interval)
 
-        # Collect result
-        logger.info(f"Collecting result from Stage {stage.number}")
-        console.print("\nCollecting result...")
-
-        if output_file.exists():
-            output = output_file.read_text()
-            logger.debug(f"Stage {stage.number} output ({len(output)} chars)")
-
-            if config.verbose:
-                print_header(f"OUTPUT FROM STAGE {stage.number}")
-                console.print(output)
-
-            # Extract PR number using multiple strategies
-            from smithers.services.claude import ClaudeResult
-
-            stage_result = ClaudeResult(output=output, exit_code=0, success=True)
-            pr_num = stage_result.extract_pr_number()
-            logger.debug(f"Stage {stage.number} extracted PR number: {pr_num}")
-
-            if pr_num:
-                collected_prs.append(pr_num)
-                logger.info(f"Stage {stage.number} complete: PR #{pr_num}")
-                print_success(f"Stage {stage.number} complete. PR #{pr_num}")
-                # Update vibekanban task status to completed
-                if stage_vk_task_id:
-                    vibekanban_service.update_task_status(stage_vk_task_id, "completed")
-            else:
-                msg = f"Could not extract PR number for Stage {stage.number}"
-                logger.warning(msg)
-                console.print(f"[yellow]Warning: {msg}[/yellow]")
-                # Stage stays as in_progress - user needs to investigate
-                console.print(
-                    f"[yellow]Stage {stage.number} kept as in_progress - "
-                    f"verify completion manually[/yellow]"
-                )
-                # Update vibekanban task status to failed
-                if stage_vk_task_id:
-                    vibekanban_service.update_task_status(stage_vk_task_id, "failed")
-        else:
-            logger.warning(f"No output file found for Stage {stage.number}: {output_file}")
-            console.print(
-                f"[yellow]Warning: No output file found for Stage {stage.number}[/yellow]"
-            )
-            # Stage stays as in_progress - user needs to investigate
-            console.print(
-                f"[yellow]Stage {stage.number} kept as in_progress - "
-                f"verify completion manually[/yellow]"
-            )
-            # Update vibekanban task status to failed
-            if stage_vk_task_id:
-                vibekanban_service.update_task_status(stage_vk_task_id, "failed")
+        # Process result
+        pr_num = _process_stage_result(
+            stage_number=stage.number,
+            output_file=output_file,
+            stage_vk_task_id=stage_vk_task_id,
+            vibekanban_service=vibekanban_service,
+            config=config,
+        )
+        if pr_num:
+            collected_prs.append(pr_num)
 
         # Cleanup temp files
-        for f in [prompt_file, output_file, exit_file]:
-            if f.exists():
-                f.unlink()
+        _cleanup_stage_files(prompt_file, output_file, exit_file)
 
         # Cleanup worktree for this stage
         git_service.cleanup_worktree(stage.branch)

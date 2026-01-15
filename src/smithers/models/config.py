@@ -1,5 +1,6 @@
 """Runtime configuration for Smithers."""
 
+import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -22,7 +23,7 @@ class Config:
     dry_run: bool = False
 
     # Paths
-    temp_dir: Path = field(default_factory=lambda: Path("/tmp"))
+    temp_dir: Path = field(default_factory=lambda: Path(tempfile.gettempdir()))
     plans_dir: Path = field(default_factory=lambda: Path.home() / ".smithers" / "plans")
     sessions_dir: Path = field(default_factory=lambda: Path.home() / ".smithers" / "sessions")
 

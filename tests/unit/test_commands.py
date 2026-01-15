@@ -2,7 +2,7 @@
 
 import pytest
 
-from smithers.commands.fix import parse_pr_identifier
+from smithers.utils.parsing import parse_pr_identifier
 
 
 class TestParsePrIdentifier:

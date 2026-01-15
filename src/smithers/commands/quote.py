@@ -100,6 +100,25 @@ SMITHERS_QUOTES: tuple[str, ...] = (
     "This resume is very impressive. Let me be the first to say 'abibu gazini'.",
     "I work for Monty Burns, M-M-M-M-Monty Burns!",
     "People like dogs, Mr. Burns.",
+    "The feeling is more than mutual, sir.",
+    "Oh my God, Mr. Burns is dead! Why do the good always die so young?",
+    (
+        "Oh, he's my Yorkshire terrier, sir. He's kind of tiny, so you know, it's a joke. "
+        "Here's a picture of Herky."
+    ),
+    "Sir, his family might appreciate it if you returned the brain to his body.",
+    ("This man not only failed the aptitude test, he got trapped in a closet on the way out."),
+    (
+        "I have some sad news to report. A small puppy, not unlike Lassie, "
+        "was just run over in the parking lot."
+    ),
+    "And now it's time for the comedy stylings of Homer Simpson!",
+    "Sir, where's my radiation suit?",
+    (
+        "What's wrong sir, did I get some in your eye? "
+        "The shampoo specifically said, 'No more tears!'"
+    ),
+    "Actually sir, we found the jade monkey. It was in your glove compartment.",
     # Not actually Smithers - this is Burns' computer speaking TO him. Too funny to omit.
     ("Hello, Smithers. You're quite good at turning me on. You probably should ignore that."),
 )

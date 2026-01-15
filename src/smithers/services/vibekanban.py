@@ -21,6 +21,10 @@ logger = get_logger("smithers.services.vibekanban")
 # Path where vibe-kanban stores its port file
 VIBE_KANBAN_PORT_FILE = Path(tempfile.gettempdir()) / "vibe-kanban" / "vibe-kanban.port"
 
+# Startup timeout constants for vibe-kanban launch
+VIBEKANBAN_STARTUP_MAX_RETRIES = 20
+VIBEKANBAN_STARTUP_RETRY_INTERVAL = 0.5  # seconds
+
 # Mapping from smithers status values to vibe-kanban status values
 # vibe-kanban expects: "todo" | "inprogress" | "inreview" | "done" | "cancelled"
 # smithers uses: "todo", "in_progress", "completed", "failed"
@@ -501,9 +505,9 @@ def _launch_vibekanban() -> bool:
             start_new_session=True,
         )
 
-        # Wait for it to start (up to 10 seconds)
-        for _ in range(20):
-            time.sleep(0.5)
+        # Wait for it to start (up to VIBEKANBAN_STARTUP_MAX_RETRIES * RETRY_INTERVAL seconds)
+        for _ in range(VIBEKANBAN_STARTUP_MAX_RETRIES):
+            time.sleep(VIBEKANBAN_STARTUP_RETRY_INTERVAL)
             if _is_vibekanban_running():
                 logger.info("vibe-kanban started successfully")
                 return True
