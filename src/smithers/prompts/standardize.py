@@ -1,5 +1,7 @@
 """Standardize prompt templates for PR series standardization."""
 
+from pathlib import Path
+
 from smithers.prompts.templates import (
     SELF_HEALING_SECTION,
     STRICT_JSON_SECTION,
@@ -9,7 +11,7 @@ from smithers.prompts.templates import (
 STANDARDIZE_ANALYSIS_PROMPT_TEMPLATE = """You are analyzing a series of related pull requests to understand the overall feature being implemented and determine how to standardize their titles and descriptions.
 
 ## PR Diffs
-Below are the diffs for each PR in the series. Analyze them to understand what feature is being implemented.
+Below are the diff files for each PR in the series. Read each file to understand what changes are being made.
 
 {pr_diffs}
 
@@ -156,23 +158,28 @@ If you encounter an error, output:
 Update each PR's title and description now."""
 
 
-def render_standardize_analysis_prompt(pr_diffs: list[dict[str, str | int]]) -> str:
-    """Render the standardize analysis prompt with PR diffs.
+def render_standardize_analysis_prompt(
+    pr_diffs: list[dict[str, str | int | Path]],
+) -> str:
+    """Render the standardize analysis prompt with PR diff file references.
 
     Args:
-        pr_diffs: List of dicts with 'number', 'title', and 'diff' keys
+        pr_diffs: List of dicts with 'number', 'title', 'diff_file', and 'diff_length' keys.
+                  The diff_file is a Path to the file containing the diff.
 
     Returns:
         The rendered prompt string
     """
     diffs_text = ""
     for pr in pr_diffs:
+        diff_file = pr["diff_file"]
+        diff_length = pr["diff_length"]
         diffs_text += f"""
 ### PR #{pr["number"]}: {pr["title"]}
+- **Diff file**: `{diff_file}`
+- **Diff length**: {diff_length:,} characters
 
-```diff
-{pr["diff"]}
-```
+Read this file to see the changes in this PR.
 
 """
     return render_template(

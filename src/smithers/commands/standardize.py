@@ -1,6 +1,8 @@
 """Standardize command - standardize titles and descriptions for a series of PRs."""
 
 import subprocess
+import tempfile
+from pathlib import Path
 from typing import Annotated, Any
 
 import typer
@@ -143,23 +145,37 @@ def standardize(
         if vk_task_id:
             logger.info(f"Created vibekanban task: {vk_task_id}")
 
-    # Fetch PR info and diffs
+    # Fetch PR info and diffs, write diffs to temp files
     print_info("\nFetching PR information and diffs...")
 
-    pr_diffs: list[dict[str, str | int]] = []
+    # Create a temp directory for diff files
+    temp_dir = Path(tempfile.mkdtemp(prefix="smithers-standardize-"))
+    logger.info(f"Created temp directory for diffs: {temp_dir}")
+
+    pr_diffs: list[dict[str, str | int | Path]] = []
     for pr_num in pr_numbers:
         try:
             pr_info = github_service.get_pr_info(pr_num)
             diff = fetch_pr_diff(pr_num)
+
+            # Write diff to a temp file
+            diff_file = temp_dir / f"pr-{pr_num}.diff"
+            diff_file.write_text(diff, encoding="utf-8")
+            diff_length = len(diff)
+
             pr_diffs.append(
                 {
                     "number": pr_num,
                     "title": pr_info.title,
-                    "diff": diff,
+                    "diff_file": diff_file,
+                    "diff_length": diff_length,
                 }
             )
-            console.print(f"  PR #{pr_num}: {pr_info.title}")
-            logger.info(f"PR #{pr_num}: title={pr_info.title}, diff_length={len(diff)}")
+            console.print(f"  PR #{pr_num}: {pr_info.title} ({diff_length:,} chars)")
+            logger.info(
+                f"PR #{pr_num}: title={pr_info.title}, diff_length={diff_length}, "
+                f"diff_file={diff_file}"
+            )
         except GitHubError as e:
             logger.exception(f"Failed to get info for PR #{pr_num}")
             print_error(f"Failed to get info for PR #{pr_num}: {e}")
@@ -168,11 +184,13 @@ def standardize(
     # Stage 1: Run analysis prompt
     print_header("Stage 1: Analyzing PR Series")
     print_info("Running Claude to analyze all PRs and determine standardized structure...")
+    print_info("(Using auto-compact for large diffs)")
 
     analysis_prompt = render_standardize_analysis_prompt(pr_diffs)
     logger.debug(f"Analysis prompt length: {len(analysis_prompt)} chars")
 
-    analysis_result = claude_service.run_prompt(analysis_prompt)
+    # Run with auto_compact enabled to handle large diffs
+    analysis_result = claude_service.run_prompt(analysis_prompt, auto_compact=True)
 
     if verbose:
         print_header("Analysis Output")
@@ -180,7 +198,13 @@ def standardize(
 
     if not analysis_result.success:
         logger.error(f"Claude analysis failed: exit_code={analysis_result.exit_code}")
-        print_error("Claude analysis failed. Please try again.")
+        logger.error(f"Claude output: {analysis_result.output}")
+        # Extract and show the actual error message
+        error_msg = analysis_result.output.strip()
+        if error_msg:
+            print_error(f"Claude analysis failed: {error_msg}")
+        else:
+            print_error(f"Claude analysis failed with exit code {analysis_result.exit_code}")
         raise typer.Exit(1)
 
     # Extract JSON output from analysis
@@ -219,7 +243,7 @@ def standardize(
     )
     logger.debug(f"Update prompt length: {len(update_prompt)} chars")
 
-    update_result = claude_service.run_prompt(update_prompt)
+    update_result = claude_service.run_prompt(update_prompt, auto_compact=True)
 
     if verbose:
         print_header("Update Output")
@@ -227,7 +251,16 @@ def standardize(
 
     if not update_result.success:
         logger.error(f"Claude update failed: exit_code={update_result.exit_code}")
-        print_error("Claude update failed. Some PRs may have been partially updated.")
+        logger.error(f"Claude output: {update_result.output}")
+        # Extract and show the actual error message
+        error_msg = update_result.output.strip()
+        if error_msg:
+            print_error(f"Claude update failed: {error_msg}")
+        else:
+            print_error(
+                f"Claude update failed with exit code {update_result.exit_code}. "
+                "Some PRs may have been partially updated."
+            )
         raise typer.Exit(1)
 
     # Extract JSON output from update
