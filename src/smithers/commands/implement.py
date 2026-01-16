@@ -9,7 +9,9 @@ from typing import Annotated
 
 import typer
 
+from smithers.commands.fix import fix as fix_command
 from smithers.commands.quote import print_random_quote
+from smithers.commands.standardize import standardize as standardize_command
 from smithers.console import (
     console,
     print_error,
@@ -21,10 +23,14 @@ from smithers.console import (
 from smithers.exceptions import DependencyMissingError, SmithersError
 from smithers.logging_config import get_logger, get_session_log_file
 from smithers.models.config import Config, set_config
+from smithers.models.stage import StageStatus
 from smithers.models.todo import TodoFile
 from smithers.prompts.implementation import render_implementation_prompt
-from smithers.prompts.planning import render_planning_prompt, render_planning_revision_prompt
-from smithers.services.claude import ClaudeService
+from smithers.prompts.planning import (
+    render_planning_prompt,
+    render_planning_revision_prompt,
+)
+from smithers.services.claude import ClaudeResult, ClaudeService
 from smithers.services.git import GitService
 from smithers.services.tmux import TmuxService
 from smithers.services.vibekanban import (
@@ -432,9 +438,6 @@ def implement(
     # Transition to standardize and fix modes if we have PRs
     if collected_prs:
         print_info("\nAutomatically transitioning to STANDARDIZE mode...")
-        # Import here to avoid circular import
-        from smithers.commands.standardize import standardize as standardize_command
-
         standardize_command(
             pr_identifiers=[str(pr) for pr in collected_prs],
             model=model,
@@ -443,9 +446,6 @@ def implement(
         )
 
         print_info("\nAutomatically transitioning to FIX mode...")
-        # Import here to avoid circular import
-        from smithers.commands.fix import fix as fix_command
-
         fix_command(
             design_doc=design_doc,
             pr_identifiers=[str(pr) for pr in collected_prs],
@@ -516,8 +516,6 @@ def _process_stage_result(
     Returns:
         PR number if extracted, None otherwise.
     """
-    from smithers.services.claude import ClaudeResult
-
     logger.info(f"Collecting result from Stage {stage_number}")
     console.print("\nCollecting result...")
 
@@ -610,8 +608,6 @@ def _run_implementation_phase(
     Returns:
         List of PR numbers created (including previously completed if resuming).
     """
-    from smithers.models.stage import StageStatus
-
     logger.info(
         f"Starting implementation phase: todo_file={todo_file}, "
         f"base_branch={base_branch}, resume={resume}"

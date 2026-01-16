@@ -2,6 +2,7 @@
 
 import logging
 import os
+import shutil
 import sys
 import uuid
 from datetime import UTC, datetime
@@ -211,8 +212,6 @@ def cleanup_old_sessions(max_age_days: int = 7) -> None:
     Args:
         max_age_days: Delete session directories older than this many days
     """
-    import shutil
-
     sessions_dir = Path.home() / ".smithers" / "sessions"
     if not sessions_dir.exists():
         return

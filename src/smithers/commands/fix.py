@@ -13,7 +13,7 @@ from smithers.exceptions import DependencyMissingError, SmithersError
 from smithers.logging_config import get_logger, get_session_log_file
 from smithers.models.config import Config, set_config
 from smithers.prompts.fix import render_fix_planning_prompt, render_fix_prompt
-from smithers.services.claude import ClaudeService
+from smithers.services.claude import ClaudeResult, ClaudeService
 from smithers.services.git import GitService
 from smithers.services.github import GitHubService
 from smithers.services.tmux import TmuxService
@@ -563,8 +563,6 @@ def _process_pr_result(
     Returns:
         Dict with status flags for this PR.
     """
-    from smithers.services.claude import ClaudeResult
-
     result: dict[str, bool | int] = {
         "done": False,
         "ci_failing": False,
@@ -727,8 +725,6 @@ def _run_fix_iteration(
     # Create callback for immediate vibekanban updates when each session completes
     def on_session_complete(session_name: str) -> None:
         """Update vibekanban status immediately when a session completes."""
-        from smithers.services.claude import ClaudeResult
-
         data = session_to_data.get(session_name)
         if not data:
             return

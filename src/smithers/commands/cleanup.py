@@ -6,7 +6,11 @@ import typer
 
 from smithers.console import console, print_error, print_header, print_info, print_success
 from smithers.services.git import GitService
-from smithers.services.vibekanban import VibekanbanService, get_vibekanban_url
+from smithers.services.vibekanban import (
+    VibekanbanService,
+    _auto_discover_project_id,
+    get_vibekanban_url,
+)
 
 
 def cleanup(
@@ -66,8 +70,6 @@ def cleanup(
         service.project_id = project_id
     # Otherwise, auto-discover project if not configured
     elif not service.project_id:
-        from smithers.services.vibekanban import _auto_discover_project_id
-
         service.project_id = _auto_discover_project_id()
 
     if not service.is_configured():
