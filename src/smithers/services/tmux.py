@@ -329,6 +329,23 @@ class TmuxService:
             logger.exception(f"Failed to create tmux session '{session}': {e.stderr}")
             raise TmuxError(f"Failed to create tmux session '{session}': {e.stderr}") from e
 
+    def _send_keys_to_session(self, session: str, text: str) -> None:
+        """Send literal text to a tmux session.
+
+        Args:
+            session: The tmux session name
+            text: The text to send (will be sent literally)
+        """
+        try:
+            subprocess.run(
+                ["tmux", "send-keys", "-t", session, "-l", text],
+                capture_output=True,
+                check=True,
+            )
+            logger.debug(f"Sent {len(text)} bytes to session '{session}'")
+        except subprocess.CalledProcessError as e:
+            logger.warning(f"Failed to send keys to session '{session}': {e}")
+
     def _stream_session_output(
         self,
         session: str,
@@ -343,6 +360,9 @@ class TmuxService:
         Detects session completion by watching for exit_code_file to appear,
         avoiding expensive subprocess calls.
 
+        Also forwards user input (stdin) to the tmux session so prompts can be
+        answered interactively.
+
         Args:
             session: The tmux session name
             log_file: Path to the output log file
@@ -356,6 +376,7 @@ class TmuxService:
         """
         detached = False
         tail_proc: subprocess.Popen[bytes] | None = None
+        stdin_registered = False
 
         # Remove stale exit code file from previous runs
         with contextlib.suppress(OSError):
@@ -367,6 +388,10 @@ class TmuxService:
 
         # Set up signal handler for graceful detach
         original_handler = signal.signal(signal.SIGINT, handle_sigint)
+
+        # Save original stdin blocking mode to restore later
+        stdin_fd = sys.stdin.fileno()
+        original_stdin_blocking = os.get_blocking(stdin_fd)
 
         try:
             # Wait for log file to be created (with timeout)
@@ -403,7 +428,15 @@ class TmuxService:
 
             # Use selectors for non-blocking reads with timeout
             sel = selectors.DefaultSelector()
-            sel.register(tail_proc.stdout, selectors.EVENT_READ)  # type: ignore[arg-type]
+            sel.register(tail_proc.stdout, selectors.EVENT_READ, data="tail")  # type: ignore[arg-type]
+
+            # Also register stdin for reading user input to forward to the session
+            # This allows users to respond to prompts in the tmux session
+            if sys.stdin.isatty():
+                os.set_blocking(stdin_fd, False)
+                sel.register(sys.stdin, selectors.EVENT_READ, data="stdin")
+                stdin_registered = True
+                logger.debug("Registered stdin for input forwarding to tmux session")
 
             last_exit_check = time.time()
             last_session_check = time.time()
@@ -413,17 +446,27 @@ class TmuxService:
                 # 1ms is responsive enough for real-time streaming while avoiding busy-wait
                 events = sel.select(timeout=0.001)
 
-                for _key, _ in events:
-                    # Use os.read() for truly non-blocking reads
-                    # Large buffer (64KB) for high throughput when data is available
-                    try:
-                        data = os.read(stdout_fd, 65536)
-                        if data:
-                            sys.stdout.buffer.write(data)
-                            sys.stdout.buffer.flush()
-                    except BlockingIOError:
-                        # No data available right now, continue
-                        pass
+                for key, _ in events:
+                    if key.data == "tail":
+                        # Output from tail - write to stdout
+                        try:
+                            data = os.read(stdout_fd, 65536)
+                            if data:
+                                sys.stdout.buffer.write(data)
+                                sys.stdout.buffer.flush()
+                        except BlockingIOError:
+                            # No data available right now, continue
+                            pass
+                    elif key.data == "stdin":
+                        # Input from user - forward to tmux session
+                        try:
+                            data = os.read(stdin_fd, 4096)
+                            if data:
+                                text = data.decode("utf-8", errors="replace")
+                                self._send_keys_to_session(session, text)
+                        except BlockingIOError:
+                            # No data available right now, continue
+                            pass
 
                 now = time.time()
 
@@ -461,6 +504,10 @@ class TmuxService:
         finally:
             # Restore original signal handler
             signal.signal(signal.SIGINT, original_handler)
+
+            # Restore stdin blocking mode
+            if stdin_registered:
+                os.set_blocking(stdin_fd, original_stdin_blocking)
 
             # Clean up tail process if still running
             if tail_proc is not None:
