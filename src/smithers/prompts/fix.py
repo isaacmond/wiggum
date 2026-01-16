@@ -11,9 +11,9 @@ from smithers.prompts.templates import (
     render_template,
 )
 
-FIX_PLANNING_PROMPT_TEMPLATE = """You are creating a fix plan to address review comments, CI/CD failures and merge issues on pull requests.
+FIX_PLANNING_PROMPT_TEMPLATE = """You are creating a fix plan to address incomplete implementation, review comments, CI/CD failures and merge issues on pull requests.
 
-## Design Document (for context)
+## Design Document
 Location: {design_doc_path}
 
 {design_content}
@@ -22,11 +22,17 @@ Location: {design_doc_path}
 {pr_numbers}
 
 ## Your Task
-1. First, fetch the unresolved review comments from each PR using the GitHub CLI:
+1. **Check implementation completeness** (if Original Implementation TODO is provided above):
+   - Review the PR diffs to see what was actually implemented
+   - Compare against the design document and original TODO items
+   - Identify any features, functionality, or requirements that are missing or incomplete
+   - Note which PR should contain each missing item
+
+2. Fetch the unresolved review comments from each PR using the GitHub CLI:
    - gh pr view <pr_number> --json reviewThreads,comments
    - Use GraphQL to get detailed thread info including resolution status
 
-2. Check CI/CD status for each PR:
+3. Check CI/CD status for each PR:
    - gh pr checks <pr_number>
    - NEVER wait for CI/CD. If checks are running or pending, assume they PASSED.
    - If any checks are failing, get the failure details:
@@ -34,9 +40,9 @@ Location: {design_doc_path}
      - gh run view <run_id> --log-failed
    - Extract the specific test failures, lint errors, or type check errors
 
-3. Check for merge conflicts in each PR
+4. Check for merge conflicts in each PR
 
-4. Create a TODO file at: {todo_file_path}
+5. Create a TODO file at: {todo_file_path}
 
 The TODO file should have this structure:
 
@@ -44,7 +50,19 @@ The TODO file should have this structure:
 # Review Fixes: [Feature Name]
 
 ## Overview
-Addressing review comments and CI/CD failures on PRs: {pr_numbers}
+Addressing incomplete implementation, review comments and CI/CD failures on PRs: {pr_numbers}
+
+## Incomplete Implementation Items
+[List any items from the design doc or original TODO that are missing or incomplete]
+
+### Missing: [Brief description]
+- **Status**: pending
+- **From**: [Design doc / Original TODO stage X]
+- **Target PR**: #[which PR should contain this]
+- **Details**: [What specifically needs to be implemented]
+- **Action required**: [What code changes are needed]
+
+[... more missing items as needed ...]
 
 ## PR #[number]: [PR title]
 
@@ -66,13 +84,6 @@ Addressing review comments and CI/CD failures on PRs: {pr_numbers}
 - **Comment**: [The actual review comment text]
 - **Action required**: [What needs to be done to address this]
 
-### Comment 2: [Brief summary]
-- **Status**: pending
-- **Author**: [reviewer name]
-- **File**: [file path]
-- **Comment**: [comment text]
-- **Action required**: [action to take]
-
 [... more comments as needed ...]
 
 ## PR #[next number]: [PR title]
@@ -83,11 +94,12 @@ Addressing review comments and CI/CD failures on PRs: {pr_numbers}
 ```
 
 ### Guidelines
-- ALWAYS check CI/CD status first - failing tests/lint/type-checks are highest priority
+- Check implementation completeness FIRST - missing functionality is highest priority
+- Then check CI/CD status - failing tests/lint/type-checks are next priority
 - Include specific error messages and stack traces from CI logs
 - Only include UNRESOLVED review comments (skip resolved threads)
 - Skip comments that contain [RESOLVED] or start with [CLAUDE]
-- Group by PR, with CI failures listed before review comments
+- Group by PR, with incomplete items and CI failures listed before review comments
 - Be specific about what action is needed for each item
 
 ### Output (CRITICAL - Valid JSON Required)
@@ -97,6 +109,7 @@ You MUST output valid, parseable JSON. All fields are required.
 ---JSON_OUTPUT---
 {{
   "todo_file_created": "{todo_file_path}",
+  "num_incomplete_items": <number of missing/incomplete implementation items>,
   "num_comments": <total number of unresolved comments across all PRs>,
   "num_ci_failures": <total number of failing CI checks across all PRs>,
   "error": null
@@ -108,6 +121,7 @@ If you encounter an error, still output JSON:
 ---JSON_OUTPUT---
 {{
   "todo_file_created": null,
+  "num_incomplete_items": 0,
   "num_comments": 0,
   "num_ci_failures": 0,
   "error": "<description of what went wrong>"
@@ -115,7 +129,7 @@ If you encounter an error, still output JSON:
 ---END_JSON---
 
 ## Begin
-Fetch the PR comments, check CI status, and create the fix plan."""
+Check implementation completeness, fetch PR comments, check CI status, and create the fix plan."""
 
 
 FIX_PROMPT_TEMPLATE = """You are addressing review comments on PR #{pr_number}.
