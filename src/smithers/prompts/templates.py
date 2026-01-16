@@ -96,3 +96,17 @@ You own the TODO file state for your stage. At specific points:
 2. Add a note explaining what went wrong
 3. Save the file
 """
+
+POST_PR_WORKFLOW_SECTION = """
+### Post-PR Code Quality Workflow (REQUIRED)
+After creating your PR, you MUST immediately run these three steps in order.
+Commit any improvements from each step as separate commits before proceeding to the next.
+
+**Step 1 - Simplify:** Say exactly: "Use the code-simplifier subagent to review and simplify the code I just wrote"
+
+**Step 2 - De-slopify:** Say exactly: "Use the de-slopify skill to remove any AI-generated slop patterns from my changes"
+
+**Step 3 - Review:** Say exactly: "Use the code-review subagent to review my changes"
+
+Do not consider the PR ready for review until all three steps are complete.
+"""

@@ -4,6 +4,7 @@ from pathlib import Path
 
 from smithers.prompts.templates import (
     MERGE_CONFLICT_SECTION,
+    POST_PR_WORKFLOW_SECTION,
     QUALITY_CHECKS_SECTION,
     SELF_HEALING_SECTION,
     STRICT_JSON_SECTION,
@@ -202,9 +203,8 @@ For each comment:
 ### 8. Resolve Threads When Appropriate
 Use the GitHub GraphQL API to resolve review threads after addressing them.
 
-### 9. Self-review and cleanup (if available in your environment)
-- Run `/code-review:code-review` to review your changes and apply actionable feedback
-- Run `/de-slopify` to remove AI-generated slop from the branch before finalizing
+### 9. Run post-PR quality workflow (see Post-PR Code Quality Workflow section below)
+{post_pr_workflow_section}
 {quality_checks_section}
 ### 10. Commit and Push
 - Commit with descriptive message
@@ -318,8 +318,9 @@ def render_fix_prompt(
         design_content=design_content,
         todo_file_path=todo_file_path,
         todo_content=todo_content,
-        quality_checks_section=QUALITY_CHECKS_SECTION,
         merge_conflict_section=MERGE_CONFLICT_SECTION,
+        post_pr_workflow_section=POST_PR_WORKFLOW_SECTION,
+        quality_checks_section=QUALITY_CHECKS_SECTION,
         self_healing_section=SELF_HEALING_SECTION,
         strict_json_section=STRICT_JSON_SECTION,
     )

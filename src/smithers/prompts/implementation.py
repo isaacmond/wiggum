@@ -4,6 +4,7 @@ from pathlib import Path
 
 from smithers.prompts.templates import (
     MERGE_CONFLICT_SECTION,
+    POST_PR_WORKFLOW_SECTION,
     QUALITY_CHECKS_SECTION,
     SELF_HEALING_SECTION,
     STRICT_JSON_SECTION,
@@ -45,11 +46,8 @@ Implement **Stage {stage_number}** as specified in the TODO file above.
    - **RESOLVE ALL MERGE CONFLICTS** (see Merge Conflict Resolution section below)
 5. **Implement the changes** as specified in the TODO
 6. **Run quality checks** (MUST ALL PASS) (e.g. lint, type check, test)
-7. **Self-review and cleanup (if available in your environment)**:
-   - Run `/code-review:code-review` to review your diff and apply actionable feedback
-   - Run `/de-slopify` to remove AI-generated slop from the branch before finalizing
-8. **Commit and push** with clear messages
-9. **Create the PR (stacked)**:
+7. **Commit and push** with clear messages
+8. **Create the PR (stacked)**:
    - If this stage depends on a previous stage, open the PR into that prior stage's PR/branch (stacked PR), not main
    - If this is the first stage (no dependency), open the PR into '{worktree_base}'
    - Title should reflect the stage
@@ -57,11 +55,13 @@ Implement **Stage {stage_number}** as specified in the TODO file above.
      - What this stage implements
      - The branch/PR this stacks on (if applicable) with a clear link
      - The full stage list from the TODO (so reviewers see the big picture)
-10. **Track the PR for cleanup**:
-    - After creating the PR, append the PR number to the tracking file:
-      `echo <pr_number> >> ~/.smithers/sessions/{session_name}/prs.txt`
-    - This allows `smithers kill` to close PRs and delete branches if the session is killed
+9. **Track the PR for cleanup**:
+   - After creating the PR, append the PR number to the tracking file:
+     `echo <pr_number> >> ~/.smithers/sessions/{session_name}/prs.txt`
+   - This allows `smithers kill` to close PRs and delete branches if the session is killed
+10. **Run post-PR quality workflow** (see Post-PR Code Quality Workflow section below)
 11. **Update TODO status to completed** (see TODO State Management above)
+{post_pr_workflow_section}
 {merge_conflict_section}
 ### If You Discover Issues
 If the plan needs adjustment:
@@ -136,6 +136,7 @@ def render_implementation_prompt(
         todo_content=todo_content,
         session_name=session_name,
         merge_conflict_section=MERGE_CONFLICT_SECTION,
+        post_pr_workflow_section=POST_PR_WORKFLOW_SECTION,
         quality_checks_section=QUALITY_CHECKS_SECTION,
         self_healing_section=SELF_HEALING_SECTION,
         strict_json_section=STRICT_JSON_SECTION,

@@ -1,6 +1,6 @@
 [project]
 name = "smithers"
-version = "1.19.0"
+version = "1.20.0"
 description = "Automate PR creation and review fixing with Claude AI"
 readme = "README.md"
 requires-python = ">=3.14"

@@ -79,8 +79,9 @@ class TestImplementationPrompt:
         assert "---JSON_OUTPUT---" in prompt
         assert '"complete"' in prompt
         assert '"pr_number"' in prompt
-        assert "code-review:code-review" in prompt
-        assert "de-slopify" in prompt
+        assert "code-simplifier subagent" in prompt
+        assert "de-slopify skill" in prompt
+        assert "code-review subagent" in prompt
         assert "smithers-impl-test" in prompt
         assert "prs.txt" in prompt
 
@@ -171,8 +172,9 @@ class TestFixPrompts:
         assert "---JSON_OUTPUT---" in prompt
         assert '"done"' in prompt
         assert '"ci_status"' in prompt
-        assert "code-review:code-review" in prompt
-        assert "de-slopify" in prompt
+        assert "code-simplifier subagent" in prompt
+        assert "de-slopify skill" in prompt
+        assert "code-review subagent" in prompt
 
     def test_fix_prompt_contains_claude_prefix_instruction(self) -> None:
         """Test that fix prompt instructs to prefix replies with [CLAUDE]."""
