@@ -217,14 +217,21 @@ For each comment:
 ### 8. Resolve Threads When Appropriate
 Use the GitHub GraphQL API to resolve review threads after addressing them.
 
-### 9. Run post-PR quality workflow (see Post-PR Code Quality Workflow section below)
+### 9. Update Design Document If Implementation Diverges
+If PR comments or feedback have led you to implement something differently than what was originally specified in the design document:
+- **Update the design document** at {design_doc_path} to reflect the actual implementation
+- This keeps the design doc accurate and prevents future confusion
+- Add a brief note explaining why the change was made (e.g., "Updated to use X instead of Y based on PR feedback for better Z")
+- This is REQUIRED whenever the implementation differs from the original design
+
+### 10. Run post-PR quality workflow (see Post-PR Code Quality Workflow section below)
 {post_pr_workflow_section}
 {quality_checks_section}
-### 10. Commit and Push
+### 11. Commit and Push
 - Commit with descriptive message
 - Push to the branch
 
-### 11. Verify CI/CD Status After Push
+### 12. Verify CI/CD Status After Push
 After pushing, verify CI/CD status:
 - Use: gh pr checks {pr_number}
 - NEVER wait for CI/CD. If checks are running or pending, assume they PASSED.
