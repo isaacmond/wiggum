@@ -38,20 +38,22 @@ PRData = dict[str, object]
 
 
 def fix(
+    pr_identifiers: Annotated[
+        list[str],
+        typer.Argument(help="PR numbers or GitHub PR URLs to process"),
+    ],
     design_doc: Annotated[
-        Path,
-        typer.Argument(
-            help="Path to the design document markdown file",
+        Path | None,
+        typer.Option(
+            "--design-doc",
+            "-d",
+            help="Path to the design document markdown file (optional)",
             exists=True,
             file_okay=True,
             dir_okay=False,
             readable=True,
         ),
-    ],
-    pr_identifiers: Annotated[
-        list[str],
-        typer.Argument(help="PR numbers or GitHub PR URLs to process"),
-    ],
+    ] = None,
     original_todo: Annotated[
         Path | None,
         typer.Option(
@@ -70,9 +72,7 @@ def fix(
     ] = "claude-opus-4-5-20251101",
     dry_run: Annotated[
         bool,
-        typer.Option(
-            "--dry-run", "-n", help="Show what would be done without executing"
-        ),
+        typer.Option("--dry-run", "-n", help="Show what would be done without executing"),
     ] = False,
     verbose: Annotated[
         bool,
@@ -133,11 +133,14 @@ def fix(
     github_service = GitHubService()
     vibekanban_service = create_vibekanban_service()
 
+    # Generate a base name for session/files (use design doc stem if available, else first PR)
+    base_name = design_doc.stem if design_doc else f"pr-{pr_numbers[0]}"
+
     # Check dependencies
     logger.info("Checking dependencies")
     try:
         tmux_service.ensure_rejoinable_session(
-            session_name=f"smithers-fix-{design_doc.stem}",
+            session_name=f"smithers-fix-{base_name}",
             argv=sys.argv,
         )
         git_service.ensure_dependencies()
@@ -151,12 +154,11 @@ def fix(
         raise typer.Exit(1) from e
 
     print_header("Smithers Loop: Fixing PR Comments (Parallel)")
-    console.print(f"Design doc: [cyan]{design_doc}[/cyan]")
+    if design_doc:
+        console.print(f"Design doc: [cyan]{design_doc}[/cyan]")
     if original_todo:
         console.print(f"Original TODO: [cyan]{original_todo}[/cyan]")
-    console.print(
-        f"PRs to process: [cyan]{', '.join(f'#{pr}' for pr in pr_numbers)}[/cyan]"
-    )
+    console.print(f"PRs to process: [cyan]{', '.join(f'#{pr}' for pr in pr_numbers)}[/cyan]")
     vibekanban_url = get_vibekanban_url()
     if vibekanban_url:
         console.print(f"Vibekanban: [cyan]{vibekanban_url}[/cyan]")
@@ -188,8 +190,6 @@ def fix(
             print_error(f"Failed to get info for PR #{pr_num}: {e}")
             raise typer.Exit(1) from e
 
-    design_doc_base = design_doc.stem
-
     iteration = 0
     exit_error: Exception | None = None
     try:
@@ -199,16 +199,14 @@ def fix(
 
             if max_iterations > 0 and iteration > max_iterations:
                 logger.info(f"Reached max iterations ({max_iterations})")
-                console.print(
-                    f"\n[yellow]Reached max iterations ({max_iterations})[/yellow]"
-                )
+                console.print(f"\n[yellow]Reached max iterations ({max_iterations})[/yellow]")
                 break
 
             print_header(f"ITERATION {iteration}")
 
             # Create timestamped TODO file for this iteration in ~/.smithers/plans
             timestamp = datetime.now(tz=UTC).strftime("%Y%m%d-%H%M%S")
-            todo_file = config.plans_dir / f"{design_doc_base}.smithers-{timestamp}.md"
+            todo_file = config.plans_dir / f"{base_name}.smithers-{timestamp}.md"
 
             result = _run_fix_iteration(
                 design_doc=design_doc,
@@ -234,9 +232,7 @@ def fix(
 
             if result["comments_done_ci_failing"]:
                 logger.info("Comments resolved but CI still failing")
-                console.print(
-                    "\n[yellow]Comments resolved but CI still failing[/yellow]"
-                )
+                console.print("\n[yellow]Comments resolved but CI still failing[/yellow]")
                 console.print("Continuing to fix CI issues...")
                 continue
 
@@ -268,8 +264,8 @@ def fix(
 
 
 def _run_fix_planning(
-    design_doc: Path,
-    design_content: str,
+    design_doc: Path | None,
+    design_content: str | None,
     original_todo_content: str | None,
     pr_numbers: list[int],
     todo_file: Path,
@@ -279,8 +275,8 @@ def _run_fix_planning(
     """Run the planning phase of a fix iteration.
 
     Args:
-        design_doc: Path to the design document.
-        design_content: Content of the design document.
+        design_doc: Path to the design document, or None if not provided.
+        design_content: Content of the design document, or None if not provided.
         original_todo_content: Content of the original implementation TODO (from implement phase).
         pr_numbers: List of PR numbers to fix.
         todo_file: Path to the TODO file for this iteration.
@@ -307,19 +303,13 @@ def _run_fix_planning(
         console.print(result.output)
 
     if not result.success:
-        logger.warning(
-            f"Claude Code failed during TODO creation: exit_code={result.exit_code}"
-        )
-        console.print(
-            "[yellow]Claude Code failed during TODO creation. Retrying...[/yellow]"
-        )
+        logger.warning(f"Claude Code failed during TODO creation: exit_code={result.exit_code}")
+        console.print("[yellow]Claude Code failed during TODO creation. Retrying...[/yellow]")
         return (False, "", 0, 0, 0)
 
     if not todo_file.exists():
         logger.warning(f"TODO file not created at {todo_file}")
-        console.print(
-            f"[yellow]TODO file not created at {todo_file}. Retrying...[/yellow]"
-        )
+        console.print(f"[yellow]TODO file not created at {todo_file}. Retrying...[/yellow]")
         return (False, "", 0, 0, 0)
 
     logger.info(f"Fix plan created: {todo_file}")
@@ -327,9 +317,7 @@ def _run_fix_planning(
     todo_content = todo_file.read_text()
 
     planning_json = result.extract_json()
-    num_incomplete_items = (
-        planning_json.get("num_incomplete_items", 0) if planning_json else 0
-    )
+    num_incomplete_items = planning_json.get("num_incomplete_items", 0) if planning_json else 0
     num_comments = planning_json.get("num_comments", 0) if planning_json else 0
     num_ci_failures = planning_json.get("num_ci_failures", 0) if planning_json else 0
     logger.info(
@@ -349,8 +337,8 @@ def _setup_pr_worktrees(
     pr_numbers: list[int],
     pr_branches: dict[int, str],
     pr_urls: dict[int, str],
-    design_doc: Path,
-    design_content: str,
+    design_doc: Path | None,
+    design_content: str | None,
     original_todo_content: str | None,
     todo_file: Path,
     todo_content: str,
@@ -367,8 +355,8 @@ def _setup_pr_worktrees(
         pr_numbers: List of PR numbers to fix.
         pr_branches: Mapping of PR numbers to branch names.
         pr_urls: Mapping of PR numbers to GitHub URLs.
-        design_doc: Path to the design document.
-        design_content: Content of the design document.
+        design_doc: Path to the design document, or None if not provided.
+        design_content: Content of the design document, or None if not provided.
         original_todo_content: Content of the original implementation TODO (from implement phase).
         todo_file: Path to the TODO file for this iteration.
         todo_content: Content of the TODO file.
@@ -392,15 +380,11 @@ def _setup_pr_worktrees(
         try:
             worktree_path = git_service.create_worktree(branch, f"origin/{branch}")
         except SmithersError:
-            console.print(
-                f"[yellow]Trying alternative worktree creation for {branch}[/yellow]"
-            )
+            console.print(f"[yellow]Trying alternative worktree creation for {branch}[/yellow]")
             try:
                 worktree_path = git_service.create_worktree(branch, branch)
             except SmithersError as e:
-                console.print(
-                    f"[red]Could not create worktree for PR #{pr_num}: {e}[/red]"
-                )
+                console.print(f"[red]Could not create worktree for PR #{pr_num}: {e}[/red]")
                 continue
 
         # Create prompt file and output files
@@ -494,9 +478,7 @@ def _get_or_create_vibekanban_task(
     if existing_task:
         pr_vk_task_id = existing_task.get("id")
         if pr_vk_task_id:
-            logger.info(
-                f"Found existing vibekanban task for PR #{pr_num}: {pr_vk_task_id}"
-            )
+            logger.info(f"Found existing vibekanban task for PR #{pr_num}: {pr_vk_task_id}")
         return pr_vk_task_id
     logger.info(f"No vibekanban task for PR #{pr_num}: no issues to fix")
     return None
@@ -612,9 +594,7 @@ def _process_pr_result(
 
     if not output_file.exists():
         logger.warning(f"No output file found for PR #{pr_num}: {output_file}")
-        console.print(
-            f"[yellow]Warning: No output file found for PR #{pr_num}[/yellow]"
-        )
+        console.print(f"[yellow]Warning: No output file found for PR #{pr_num}[/yellow]")
         return result
 
     raw_output = output_file.read_text()
@@ -641,9 +621,7 @@ def _process_pr_result(
         result["done"] = json_output.get("done", False)
         result["ci_failing"] = json_output.get("ci_status") == "failing"
         result["base_merged"] = json_output.get("base_branch_merged", False)
-        result["merge_conflicts_resolved"] = (
-            json_output.get("merge_conflicts") != "unresolved"
-        )
+        result["merge_conflicts_resolved"] = json_output.get("merge_conflicts") != "unresolved"
         result["unresolved"] = json_output.get("unresolved_before", 0)
         result["addressed"] = json_output.get("addressed", 0)
     else:
@@ -679,7 +657,7 @@ def _cleanup_pr_files(
 
 
 def _run_fix_iteration(
-    design_doc: Path,
+    design_doc: Path | None,
     original_todo: Path | None,
     todo_file: Path,
     pr_numbers: list[int],
@@ -694,7 +672,7 @@ def _run_fix_iteration(
     """Run a single fix iteration.
 
     Args:
-        design_doc: Path to the design document.
+        design_doc: Path to the design document, or None if not provided.
         original_todo: Path to the original implementation TODO file (from implement phase).
         todo_file: Path to the TODO file for this iteration.
         pr_numbers: List of PR numbers to fix.
@@ -709,23 +687,19 @@ def _run_fix_iteration(
     Returns:
         Dict with status flags and counts
     """
-    logger.info(
-        f"Running fix iteration: pr_numbers={pr_numbers}, todo_file={todo_file}"
-    )
-    design_content = design_doc.read_text()
+    logger.info(f"Running fix iteration: pr_numbers={pr_numbers}, todo_file={todo_file}")
+    design_content = design_doc.read_text() if design_doc else None
     original_todo_content = original_todo.read_text() if original_todo else None
 
     # Phase 1: Run planning to create fix TODO
-    success, todo_content, num_incomplete_items, num_comments, num_ci_failures = (
-        _run_fix_planning(
-            design_doc=design_doc,
-            design_content=design_content,
-            original_todo_content=original_todo_content,
-            pr_numbers=pr_numbers,
-            todo_file=todo_file,
-            claude_service=claude_service,
-            config=config,
-        )
+    success, todo_content, num_incomplete_items, num_comments, num_ci_failures = _run_fix_planning(
+        design_doc=design_doc,
+        design_content=design_content,
+        original_todo_content=original_todo_content,
+        pr_numbers=pr_numbers,
+        todo_file=todo_file,
+        claude_service=claude_service,
+        config=config,
     )
 
     if not success:
@@ -828,8 +802,7 @@ def _run_fix_iteration(
 
     return {
         "all_done": truly_all_done,
-        "comments_done_ci_failing": results["all_done"]
-        and not results["all_ci_passing"],
+        "comments_done_ci_failing": results["all_done"] and not results["all_ci_passing"],
         "total_unresolved": results["total_unresolved"],
         "total_addressed": results["total_addressed"],
         "all_base_merged": results["all_base_merged"],

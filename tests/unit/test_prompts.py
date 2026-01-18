@@ -222,3 +222,42 @@ class TestFixPrompts:
         )
 
         assert "[CLAUDE]" in prompt
+
+    def test_render_fix_planning_prompt_without_design_doc(self) -> None:
+        """Test rendering the fix planning prompt without design doc."""
+        prompt = render_fix_planning_prompt(
+            design_doc_path=None,
+            design_content=None,
+            original_todo_content=None,
+            pr_numbers=[123],
+            todo_file_path=Path("/path/to/todo.md"),
+        )
+
+        # Should still contain the essential elements
+        assert "123" in prompt
+        assert "CI/CD" in prompt
+        assert "review comments" in prompt.lower()
+        # Should not contain design document section
+        assert "## Design Document" not in prompt
+
+    def test_render_fix_prompt_without_design_doc(self) -> None:
+        """Test rendering the fix prompt without design doc."""
+        prompt = render_fix_prompt(
+            pr_number=123,
+            branch="feature/test",
+            worktree_path=Path("/worktrees/feature-test"),
+            design_doc_path=None,
+            design_content=None,
+            original_todo_content=None,
+            todo_file_path=Path("/path/to/todo.md"),
+            todo_content="# TODO\n- Fix issue A",
+        )
+
+        # Should still contain the essential elements
+        assert "PR #123" in prompt
+        assert "feature/test" in prompt
+        assert "---JSON_OUTPUT---" in prompt
+        # Should not contain design document section
+        assert "## Design Document" not in prompt
+        # Should have skip message for design doc update step
+        assert "skip this step" in prompt.lower()

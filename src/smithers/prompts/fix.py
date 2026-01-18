@@ -12,12 +12,7 @@ from smithers.prompts.templates import (
 )
 
 FIX_PLANNING_PROMPT_TEMPLATE = """You are creating a fix plan to address incomplete implementation, review comments, CI/CD failures and merge issues on pull requests.
-
-## Design Document
-Location: {design_doc_path}
-
-{design_content}
-{original_todo_section}
+{design_doc_section}{original_todo_section}
 ## PRs to Process
 {pr_numbers}
 
@@ -140,12 +135,7 @@ FIX_PROMPT_TEMPLATE = """You are addressing review comments on PR #{pr_number}.
 - PR Number: {pr_number}
 - This is an isolated worktree, not the main repository
 - All git operations are already scoped to this branch
-
-## Design Document
-Location: {design_doc_path}
-
-{design_content}
-{original_todo_section}
+{design_doc_section}{original_todo_section}
 ## Implementation Plan (TODO)
 Location: {todo_file_path}
 
@@ -217,13 +207,7 @@ For each comment:
 ### 8. Resolve Threads When Appropriate
 Use the GitHub GraphQL API to resolve review threads after addressing them.
 
-### 9. Update Design Document If Implementation Diverges
-If PR comments or feedback have led you to implement something differently than what was originally specified in the design document:
-- **Update the design document** at {design_doc_path} to reflect the actual implementation
-- This keeps the design doc accurate and prevents future confusion
-- Add a brief note explaining why the change was made (e.g., "Updated to use X instead of Y based on PR feedback for better Z")
-- This is REQUIRED whenever the implementation differs from the original design
-
+{update_design_doc_section}
 ### 10. Run post-PR quality workflow (see Post-PR Code Quality Workflow section below)
 {post_pr_workflow_section}
 {quality_checks_section}
@@ -281,8 +265,8 @@ Process PR #{pr_number} now."""
 
 
 def render_fix_planning_prompt(
-    design_doc_path: Path,
-    design_content: str,
+    design_doc_path: Path | None,
+    design_content: str | None,
     original_todo_content: str | None,
     pr_numbers: list[int],
     todo_file_path: Path,
@@ -290,8 +274,8 @@ def render_fix_planning_prompt(
     """Render the fix planning prompt.
 
     Args:
-        design_doc_path: Path to the design document
-        design_content: Content of the design document
+        design_doc_path: Path to the design document, or None if not provided
+        design_content: Content of the design document, or None if not provided
         original_todo_content: Content of the original implementation TODO (from implement phase)
         pr_numbers: List of PR numbers to process
         todo_file_path: Path where the TODO file should be created
@@ -300,15 +284,59 @@ def render_fix_planning_prompt(
         The rendered prompt string
     """
     pr_numbers_str = " ".join(str(n) for n in pr_numbers)
+    design_doc_section = _render_design_doc_section(design_doc_path, design_content)
     original_todo_section = _render_original_todo_section(original_todo_content)
     return render_template(
         FIX_PLANNING_PROMPT_TEMPLATE,
-        design_doc_path=design_doc_path,
-        design_content=design_content,
+        design_doc_section=design_doc_section,
         original_todo_section=original_todo_section,
         pr_numbers=pr_numbers_str,
         todo_file_path=todo_file_path,
     )
+
+
+def _render_design_doc_section(design_doc_path: Path | None, design_content: str | None) -> str:
+    """Render the design document section.
+
+    Args:
+        design_doc_path: Path to the design document, or None if not provided
+        design_content: Content of the design document, or None if not provided
+
+    Returns:
+        The rendered section string, or empty string if no design doc
+    """
+    if not design_doc_path or not design_content:
+        return ""
+    return f"""
+## Design Document
+Location: {design_doc_path}
+
+{design_content}
+"""
+
+
+def _render_update_design_doc_section(design_doc_path: Path | None) -> str:
+    """Render the update design document instruction section.
+
+    Args:
+        design_doc_path: Path to the design document, or None if not provided
+
+    Returns:
+        The rendered section string, or a note to skip if no design doc
+    """
+    if not design_doc_path:
+        return """### 9. Update Design Document If Implementation Diverges
+(No design document was provided - skip this step)
+
+"""
+    return f"""### 9. Update Design Document If Implementation Diverges
+If PR comments or feedback have led you to implement something differently than what was originally specified in the design document:
+- **Update the design document** at {design_doc_path} to reflect the actual implementation
+- This keeps the design doc accurate and prevents future confusion
+- Add a brief note explaining why the change was made (e.g., "Updated to use X instead of Y based on PR feedback for better Z")
+- This is REQUIRED whenever the implementation differs from the original design
+
+"""
 
 
 def _render_original_todo_section(original_todo_content: str | None) -> str:
@@ -333,8 +361,8 @@ def render_fix_prompt(
     pr_number: int,
     branch: str,
     worktree_path: Path,
-    design_doc_path: Path,
-    design_content: str,
+    design_doc_path: Path | None,
+    design_content: str | None,
     original_todo_content: str | None,
     todo_file_path: Path,
     todo_content: str,
@@ -345,8 +373,8 @@ def render_fix_prompt(
         pr_number: The PR number to fix
         branch: The branch name for this PR
         worktree_path: Path to the worktree
-        design_doc_path: Path to the design document
-        design_content: Content of the design document
+        design_doc_path: Path to the design document, or None if not provided
+        design_content: Content of the design document, or None if not provided
         original_todo_content: Content of the original implementation TODO (from implement phase)
         todo_file_path: Path to the TODO file
         todo_content: Content of the TODO file
@@ -354,15 +382,17 @@ def render_fix_prompt(
     Returns:
         The rendered prompt string
     """
+    design_doc_section = _render_design_doc_section(design_doc_path, design_content)
     original_todo_section = _render_original_todo_section(original_todo_content)
+    update_design_doc_section = _render_update_design_doc_section(design_doc_path)
     return render_template(
         FIX_PROMPT_TEMPLATE,
         pr_number=pr_number,
         branch=branch,
         worktree_path=worktree_path,
-        design_doc_path=design_doc_path,
-        design_content=design_content,
+        design_doc_section=design_doc_section,
         original_todo_section=original_todo_section,
+        update_design_doc_section=update_design_doc_section,
         todo_file_path=todo_file_path,
         todo_content=todo_content,
         merge_conflict_section=MERGE_CONFLICT_SECTION,

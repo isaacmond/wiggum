@@ -48,7 +48,10 @@ uv tool install git+https://github.com/isaacmond/smithers.git
 smithers implement docs/my-feature.md --branch-prefix myname/
 
 # Fix review comments on existing PRs
-smithers fix docs/my-feature.md 123 124 125
+smithers fix 123 124 125
+
+# Fix with a design doc for context
+smithers fix 123 124 125 --design-doc docs/my-feature.md
 
 # Interactively create a plan with Claude
 smithers plan
@@ -82,9 +85,16 @@ After planning, smithers displays the plan summary and asks for confirmation bef
 Loops until all review comments are addressed and CI passes.
 
 ```bash
-smithers fix docs/my-feature.md 123 124 125
-smithers fix docs/my-feature.md https://github.com/owner/repo/pull/123
-smithers fix docs/my-feature.md 123 --max-iterations 5
+smithers fix 123 124 125
+smithers fix https://github.com/owner/repo/pull/123
+
+# Optionally provide a design doc for context
+smithers fix 123 --design-doc docs/my-feature.md
+
+# With original implementation TODO for completeness checking
+smithers fix 123 --design-doc docs/my-feature.md --todo ~/.smithers/plans/my-plan.md
+
+smithers fix 123 --max-iterations 5
 ```
 
 ### plan
@@ -194,9 +204,10 @@ Session logs in `~/.smithers/logs/` contain:
 |--------|-------|-------------|----------|
 | `--branch-prefix` | `-p` | **Required.** Prefix for branch names (e.g., `isaac/`) | implement |
 | `--base` | `-b` | Base branch for PRs (default: main) | implement |
-| `--todo-file` | `-t` | Existing plan file to use | implement |
+| `--todo-file` | `-t` | Existing plan file to use | implement, fix |
 | `--resume` | `-r` | Resume from checkpoint, skip completed stages | implement |
 | `--auto-approve` | `-y` | Auto-approve the plan without confirmation | implement |
+| `--design-doc` | `-d` | Design document for context (optional) | fix |
 | `--max-iterations` | | Max fix iterations, 0=unlimited (default: 0) | fix |
 | `--output` | `-o` | Output path for plan file | plan |
 | `--model` | `-m` | Claude model (default: claude-opus-4-5-20251101) | all |
